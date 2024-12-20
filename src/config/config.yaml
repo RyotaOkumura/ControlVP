@@ -1,0 +1,8 @@
+dataset:
+  image_dir: /TBI/
+  annotation_dir: /TBI
+
+training:
+  epochs: 100
+  batch_size: 16
+  learning_rate: 0.001
