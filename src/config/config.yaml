@@ -3,6 +3,11 @@ dataset:
   annotation_dir: /TBI
 
 training:
+  threshold:
+    distance_from_vanishing_point: 10
+    edge_magnitude: 0.1
+  additional_loss_weight: 0.01
   epochs: 100
   batch_size: 16
-  learning_rate: 0.001
+  learning_rate: 0.000001
+
