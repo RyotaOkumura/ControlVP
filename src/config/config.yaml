@@ -1,13 +1,10 @@
 dataset:
-  image_dir: /TBI/
-  annotation_dir: /TBI
+  image_base_dir: "/srv/datasets3/HoliCity/images"
+  vpts_base_dir: "/srv/datasets3/HoliCity/vanishing_points/"
+  dataset_dir: "/srv/datasets3/HoliCity/dataset_w_vpts/"
 
 training:
   threshold:
     distance_from_vanishing_point: 10
-    edge_magnitude: 0.1
   additional_loss_weight: 0.01
-  epochs: 100
-  batch_size: 16
-  learning_rate: 0.000001
 
