@@ -13,7 +13,7 @@ sys.path.append(
 from src.additional_loss import AdditionalLossCalculator
 
 
-def visualize_edges_to_vp(edge_map, vp, angle_threshold=0.866):  # cos(30度) ≒ 0.866
+def visualize_edges_to_vp(edge_map, vp, angle_threshold=0.95):  # cos(30度) ≒ 0.866
     """
     特定の消失点に向かうエッジを抽出して可視化
     edge_map: [2, H, W] のエッジマップ
@@ -33,8 +33,8 @@ def visualize_edges_to_vp(edge_map, vp, angle_threshold=0.866):  # cos(30度) �
     )
 
     # エッジの強度とマスクの計算
-    edge_magnitude = torch.sqrt(torch.sum(edge_map**2, dim=0))
-    edge_mask = edge_magnitude > 1  # エッジの閾値
+    edge_magnitude = torch.norm(torch.stack([edge_map[0], edge_map[1]]), p=2, dim=0)
+    edge_mask = edge_magnitude > 0
 
     # 有効なエッジの抽出
     y_valid = y_coords[edge_mask]
@@ -42,21 +42,21 @@ def visualize_edges_to_vp(edge_map, vp, angle_threshold=0.866):  # cos(30度) �
 
     # エッジの方向ベクトル（正規化）
     # 勾配の法線方向が直線の方向
-    edge_dx = edge_map[0][edge_mask]  # dy
-    edge_dy = -edge_map[1][edge_mask]  # -dx
-    edge_norms = torch.sqrt(edge_dx**2 + edge_dy**2) + 1e-6
+    edge_dx = edge_map[0][edge_mask]  # xに垂直なエッジ
+    edge_dy = edge_map[1][edge_mask]  # yに垂直なエッジ
+    edge_norms = torch.norm(torch.stack([edge_dx, edge_dy]), p=2, dim=0).clamp(min=1e-6)
     edge_dx = edge_dx / edge_norms
     edge_dy = edge_dy / edge_norms
 
     # 消失点への方向ベクトル（正規化）
     vp_dy = vp[1] - y_valid
     vp_dx = vp[0] - x_valid
-    vp_norms = torch.sqrt(vp_dx**2 + vp_dy**2) + 1e-6
+    vp_norms = torch.norm(torch.stack([vp_dx, vp_dy]), p=2, dim=0)
     vp_dx = vp_dx / vp_norms
     vp_dy = vp_dy / vp_norms
 
     # 方向ベクトル間の内積を計算（cosθ）
-    cos_theta = torch.abs(vp_dx * edge_dx + vp_dy * edge_dy)
+    cos_theta = torch.abs(vp_dy * edge_dx + vp_dx * edge_dy)
 
     # 内積が閾値以上のエッジを抽出
     valid_edges = cos_theta > angle_threshold
@@ -78,6 +78,7 @@ path_vpts = "/srv/datasets3/HoliCity/vanishing_points/2008-07/8heFyix0weuW7Kzd6A
 
 # 画像とエッジの読み込み
 image = Image.open(path_img)
+image = cv2.Canny(np.array(image.convert("RGB").convert("L")), 200, 300)
 transform = transforms.Compose([transforms.ToTensor()])
 image_tensor = transform(image).unsqueeze(0)
 
@@ -85,7 +86,6 @@ image_tensor = transform(image).unsqueeze(0)
 additional_loss = AdditionalLossCalculator()
 edges = additional_loss.detect_edges(image_tensor)[0]  # [2, H, W]
 edge_magnitude = torch.sqrt(torch.sum(edges**2, dim=0))
-edge_magnitude = edge_magnitude * (edge_magnitude > 1)
 # 消失点データの読み込みと2D座標への変換
 vpts_data = np.load(path_vpts)
 vpts_3d = vpts_data["vpts"]

@@ -171,3 +171,11 @@ cython_debug/
 .pypirc
 
 .vscode/
+
+wandb/
+
+model_out/
+
+generated_images/
+
+model_out_w_additional/

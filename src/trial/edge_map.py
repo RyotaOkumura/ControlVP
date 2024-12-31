@@ -28,7 +28,7 @@ additional_loss = AdditionalLossCalculator()
 edges = additional_loss.detect_edges(image_tensor)  # [1, 2, H, W]
 
 # 結果の可視化
-edge_magnitude = torch.sqrt(edges[0, 0] ** 2 + edges[0, 1] ** 2)  # エッジの強度を計算
+edge_magnitude = torch.norm(edges[0], p=2, dim=1)  # エッジの強度を計算
 # エッジ強度0.1以下のものは表示しない
 edge_magnitude = edge_magnitude * (edge_magnitude > 0.5).float()
 

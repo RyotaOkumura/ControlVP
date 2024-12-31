@@ -34,7 +34,7 @@ import transformers
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from huggingface_hub import create_repo, upload_folder
 from packaging import version
 from PIL import Image
@@ -469,7 +469,7 @@ def parse_args(input_args=None):
         help="Epsilon value for the Adam optimizer",
     )
     parser.add_argument(
-        "--max_grad_norm", default=1.0, type=float, help="Max gradient norm."
+        "--max_grad_norm", default=0.5, type=float, help="Max gradient norm."
     )
     parser.add_argument(
         "--push_to_hub",
@@ -702,24 +702,19 @@ def make_train_dataset(args, tokenizer, accelerator):
     # download the dataset.
     if args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
-        dataset = load_dataset(
+        dataset = load_from_disk(
             args.dataset_name,
-            args.dataset_config_name,
-            cache_dir=args.cache_dir,
-            data_dir=args.train_data_dir,
         )
     else:
         if args.train_data_dir is not None:
-            dataset = load_dataset(
+            dataset = load_from_disk(
                 args.train_data_dir,
-                cache_dir=args.cache_dir,
             )
         # See more about loading custom images at
         # https://huggingface.co/docs/datasets/v2.0.0/en/dataset_script
 
-    # Preprocessing the datasets.
-    # We need to tokenize inputs and targets.
-    column_names = dataset["train"].column_names
+    # データセットの構造を確認
+    column_names = dataset.column_names
 
     # 6. Get the column names for input/target.
     if args.image_column is None:
@@ -831,17 +826,84 @@ def make_train_dataset(args, tokenizer, accelerator):
 
     with accelerator.main_process_first():
         if args.max_train_samples is not None:
-            dataset["train"] = (
-                dataset["train"]
-                .shuffle(seed=args.seed)
-                .select(range(args.max_train_samples))
+            dataset = dataset.shuffle(seed=args.seed).select(
+                range(args.max_train_samples)
             )
         # Set the training transforms
-        train_dataset = dataset["train"].with_transform(preprocess_train)
+        train_dataset = dataset.with_transform(preprocess_train)
 
     return train_dataset
 
 
+# def collate_fn(examples):
+#     pixel_values = torch.stack([example["pixel_values"] for example in examples])
+#     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+
+#     conditioning_pixel_values = torch.stack(
+#         [example["conditioning_pixel_values"] for example in examples]
+#     )
+#     conditioning_pixel_values = conditioning_pixel_values.to(
+#         memory_format=torch.contiguous_format
+#     ).float()
+
+#     input_ids = torch.stack([example["input_ids"] for example in examples])
+
+#     # 消失点の座標を3つに統一
+#     vanishing_points = []
+#     dummy_point = [-1, -1]  # ダミーの消失点座標
+
+#     for example in examples:
+#         vp = example["vanishing_points"]
+#         if isinstance(vp, (list, np.ndarray)):
+#             # 現在の消失点リストをコピー
+#             current_vp = list(vp)
+
+#             # 3つになるまでダミーの消失点を追加
+#             while len(current_vp) < 3:
+#                 current_vp.append(dummy_point)
+
+#             # 最初の3つの消失点を使用
+#             vanishing_points.append(current_vp[:3])
+#         else:
+#             # 予期しない形式の場合は3つのダミー消失点を使用
+#             vanishing_points.append([dummy_point] * 3)
+
+#     vanishing_points = torch.tensor(vanishing_points, dtype=torch.float32)
+
+#     valid_indices = []
+#     for idx, example in enumerate(examples):
+#         vp = example["vanishing_points"]
+#         is_valid = True
+#         if isinstance(vp, (list, np.ndarray)):
+#             for point in vp:
+#                 if isinstance(point, (list, np.ndarray)):
+#                     if any(np.isinf(point)) or any(np.isnan(point)):
+#                         is_valid = False
+#                         break
+#         if is_valid:
+#             valid_indices.append(idx)
+
+#     total_samples = len(examples)
+#     valid_samples = len(valid_indices)
+#     if valid_samples < total_samples:
+#         print(
+#             f"Filtered out {total_samples - valid_samples} samples with invalid vanishing points"
+#         )
+
+#     pixel_values = torch.stack([pixel_values[i] for i in valid_indices])
+#     conditioning_pixel_values = torch.stack(
+#         [conditioning_pixel_values[i] for i in valid_indices]
+#     )
+#     input_ids = torch.stack([input_ids[i] for i in valid_indices])
+#     vanishing_points = torch.stack([vanishing_points[i] for i in valid_indices])
+
+
+#     return {
+#         "pixel_values": pixel_values,
+#         "conditioning_pixel_values": conditioning_pixel_values,
+#         "input_ids": input_ids,
+#         "vanishing_points": vanishing_points,
+#     }
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
@@ -855,10 +917,32 @@ def collate_fn(examples):
 
     input_ids = torch.stack([example["input_ids"] for example in examples])
 
-    # 消失点の座標をバッチ化
-    vanishing_points = torch.tensor(
-        [example["vanishing_points"] for example in examples]
-    )
+    # 消失点の座標を3つに統一
+    vanishing_points = []
+    dummy_point = [-1, -1]  # ダミーの消失点座標
+
+    for example in examples:
+        vp = example["vanishing_points"]
+        if isinstance(vp, (list, np.ndarray)):
+            # 現在の消失点リストをコピー
+            current_vp = list(vp)
+
+            for idx, vp in enumerate(current_vp):
+                if isinstance(vp, (list, np.ndarray)):
+                    if any(np.isinf(vp)) or any(np.isnan(vp)):
+                        current_vp[idx] = dummy_point
+
+            # 3つになるまでダミーの消失点を追加
+            while len(current_vp) < 3:
+                current_vp.append(dummy_point)
+
+            # 最初の3つの消失点を使用
+            vanishing_points.append(current_vp[:3])
+        else:
+            # 予期しない形式の場合は3つのダミー消失点を使用
+            vanishing_points.append([dummy_point] * 3)
+
+    vanishing_points = torch.tensor(vanishing_points, dtype=torch.float32)
 
     return {
         "pixel_values": pixel_values,
@@ -942,7 +1026,9 @@ def main(args):
 
     # Load scheduler and models
     noise_scheduler = DDPMScheduler.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="scheduler"
+        args.pretrained_model_name_or_path,
+        subfolder="scheduler",
+        prediction_type="epsilon",
     )
     text_encoder = text_encoder_cls.from_pretrained(
         args.pretrained_model_name_or_path,
@@ -1237,7 +1323,15 @@ def main(args):
                 controlnet_image = batch["conditioning_pixel_values"].to(
                     dtype=weight_dtype
                 )
-
+                # print("\n")
+                # print("=== ControlNet Input Check ===")
+                # print(
+                #     f"controlnet_image stats: min={controlnet_image.min()}, max={controlnet_image.max()}, mean={controlnet_image.mean()}"
+                # )
+                # print(f"timesteps: {timesteps}")
+                # print(
+                #     f"encoder_hidden_states stats: min={encoder_hidden_states.min()}, max={encoder_hidden_states.max()}, mean={encoder_hidden_states.mean()}"
+                # )
                 down_block_res_samples, mid_block_res_sample = controlnet(
                     noisy_latents,
                     timesteps,
@@ -1245,8 +1339,27 @@ def main(args):
                     controlnet_cond=controlnet_image,
                     return_dict=False,
                 )
+                # 入力値のチェック
+                # print("\n")
+                # print("=== UNet Input Check ===")
+                # print(
+                #     f"noisy_latents stats: min={noisy_latents.min()}, max={noisy_latents.max()}, mean={noisy_latents.mean()}"
+                # )
+                # print(f"timesteps: {timesteps}")
+                # print(
+                #     f"encoder_hidden_states stats: min={encoder_hidden_states.min()}, max={encoder_hidden_states.max()}, mean={encoder_hidden_states.mean()}"
+                # )
 
-                # Predict the noise residual
+                # # residualsのチェック
+                # print("\n")
+                # print("=== Residuals Check ===")
+                # for i, sample in enumerate(down_block_res_samples):
+                #     print(
+                #         f"down_block_res_sample {i} stats: min={sample.min()}, max={sample.max()}, mean={sample.mean()}"
+                #     )
+                # print(
+                #     f"mid_block_res_sample stats: min={mid_block_res_sample.min()}, max={mid_block_res_sample.max()}, mean={mid_block_res_sample.mean()}"
+                # )  # Predict the noise residual
                 model_pred = unet(
                     noisy_latents,
                     timesteps,
@@ -1260,6 +1373,12 @@ def main(args):
                     ),
                     return_dict=False,
                 )[0]
+
+                # model_predにNaNがないことを確認
+                if torch.isnan(model_pred).any():
+                    print(f"model_pred: {model_pred}")
+                    print("line 1279")
+                    raise ValueError("NaN detected in model_pred")
 
                 # Get the target for loss depending on the prediction type
                 if noise_scheduler.config.prediction_type == "epsilon":
@@ -1279,10 +1398,10 @@ def main(args):
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 )
                 from src.additional_loss import AdditionalLossCalculator
-                from src.config.config import config
+                from src.config import config
 
                 additional_loss_calculator = AdditionalLossCalculator(
-                    config.threshold.distance_from_vanishing_point
+                    config["training"]["threshold"]["distance_from_vanishing_point"]
                 )
                 middle_timesteps = (timesteps // 2).to(timesteps.device)
                 middle_latents = additional_loss_calculator.predict_denoised_latent(
@@ -1292,15 +1411,22 @@ def main(args):
                     timesteps,
                     middle_timesteps,
                 )
+                down_block_res_samples_middle, mid_block_res_sample_middle = controlnet(
+                    middle_latents,
+                    middle_timesteps,
+                    encoder_hidden_states=encoder_hidden_states,
+                    controlnet_cond=controlnet_image,
+                    return_dict=False,
+                )
                 model_pred_middle = unet(
                     middle_latents,
                     middle_timesteps,
                     encoder_hidden_states=encoder_hidden_states,
                     down_block_additional_residuals=[
                         sample.to(dtype=weight_dtype)
-                        for sample in down_block_res_samples
+                        for sample in down_block_res_samples_middle
                     ],
-                    mid_block_additional_residual=mid_block_res_sample.to(
+                    mid_block_additional_residual=mid_block_res_sample_middle.to(
                         dtype=weight_dtype
                     ),
                     return_dict=False,
@@ -1308,14 +1434,23 @@ def main(args):
                 denoised_latents = additional_loss_calculator.predict_denoised_latent(
                     noise_scheduler, middle_latents, model_pred_middle, middle_timesteps
                 )
+
+                denoised_latents = additional_loss_calculator.predict_denoised_latent(
+                    noise_scheduler, noisy_latents, model_pred, timesteps
+                )
                 generated_images = additional_loss_calculator.predict_original_image(
                     vae, denoised_latents
                 )
+                if step % 5000 == 0:
+                    additional_loss_calculator.save_images(
+                        generated_images, f"step_{step}"
+                    )
                 additional_loss = additional_loss_calculator.calc_additional_loss(
                     batch["pixel_values"], generated_images, batch["vanishing_points"]
                 )
-                loss += config.train.additional_loss_weight * additional_loss
-
+                loss += config["training"]["additional_loss_weight"] * additional_loss
+                # print(f"additional_loss: {additional_loss}")
+                # print(f"loss: {loss}")
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
                     params_to_clip = controlnet.parameters()

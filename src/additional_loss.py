@@ -1,5 +1,8 @@
 import torch
 import torch.nn.functional as F
+import os
+from torchvision.utils import save_image
+from datetime import datetime
 
 
 class AdditionalLossCalculator:
@@ -8,6 +11,11 @@ class AdditionalLossCalculator:
         distance_from_vanishing_point=10,
     ):
         self.distance_from_vanishing_point = distance_from_vanishing_point
+
+    def print_memory_stats(self, message: str):
+        print(f"{message} Allocated: {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
+        print(f"{message} Reserved: {torch.cuda.memory_reserved() / 1024**3:.2f} GB")
+        torch.cuda.empty_cache()
 
     def detect_edges(self, images):
         """
@@ -66,8 +74,7 @@ class AdditionalLossCalculator:
         edge_y = F.conv2d(F.pad(gray, (1, 1, 1, 1), mode="reflect"), sobel_y)
 
         # x方向とy方向のエッジを結合
-        edges = torch.cat([edge_x, edge_y], dim=1)  # [B, 2, H, W]
-
+        edges = torch.cat([edge_x, edge_y], dim=1)  # [B, 2, H, W] <- これ正しい
         return edges
 
     def predict_denoised_latent(
@@ -91,7 +98,6 @@ class AdditionalLossCalculator:
         Returns:
             torch.Tensor: 予測された元の潜在表現
         """
-        # 共通の alpha_prod_t の計算
         alpha_prod_t_current = noise_scheduler.alphas_cumprod[current_timesteps].to(
             noisy_latents.device
         )
@@ -105,11 +111,8 @@ class AdditionalLossCalculator:
             alpha_prod_t = alpha_prod_t_current / alpha_prod_t_target
         else:
             alpha_prod_t = alpha_prod_t_current
-
         sqrt_alpha_prod_t = torch.sqrt(alpha_prod_t)
         sqrt_one_minus_alpha_prod_t = torch.sqrt(1 - alpha_prod_t)
-
-        # prediction_type による分岐
         if noise_scheduler.config.prediction_type == "epsilon":
             # x0 = (x_t - √(1-αt)εθ(x_t)) / √αt
             pred_original_latent = (
@@ -123,7 +126,6 @@ class AdditionalLossCalculator:
             raise ValueError(
                 f"Unknown prediction type {noise_scheduler.config.prediction_type}"
             )
-
         return pred_original_latent
 
     def predict_original_image(self, vae, denoised_latents):
@@ -140,6 +142,11 @@ class AdditionalLossCalculator:
 
         # VAEでデコード
         # スケーリングファクターで割ってからデコード
+        # print(f"denoised_latents: {denoised_latents.shape}")
+        # denoised_latentsにNaNがないことを確認
+        if torch.isnan(denoised_latents).any():
+            print(f"denoised_latents: {denoised_latents}")
+            raise ValueError("NaN detected in denoised_latents")
         pred_images = vae.decode(denoised_latents / vae.config.scaling_factor).sample
         return pred_images
 
@@ -147,11 +154,10 @@ class AdditionalLossCalculator:
         """
         エッジマップのうち消失点に向かうものを計算する
         edge_map: [B, 2, H, W]
-        vanishing_points: [B, 2, N]
+        vanishing_points: [B, 3, 2]
         returns: [B]
         """
         B, _, H, W = edge_map.shape
-        # N = vanishing_points.shape[-1]
         device = edge_map.device
         result = torch.zeros(B, device=device)
 
@@ -161,22 +167,26 @@ class AdditionalLossCalculator:
             indexing="ij",
         )
 
-        for b in range(B):
+        # バッチ内の各サンプルに対して処理
+        for batch_idx in range(B):
             batch_total = 0
-            for n, vp in enumerate(vanishing_points[b]):
-                vp_x, vp_y = vp[0], vp[1]
+            y_valid = y_coords
+            x_valid = x_coords
+            edge_map_b = edge_map[batch_idx]
+            edge_dx = edge_map_b[0]
+            edge_dy = edge_map_b[1]
+            edge_magnitude = torch.norm(edge_map_b, p=2, dim=0)
+            vps = vanishing_points[batch_idx].to(device)  # 現在のデバイスに移動
 
-                edge_magnitude = torch.sqrt(torch.sum(edge_map[b] ** 2, dim=0))
-
-                # すべての座標を使用
-                y_valid = y_coords
-                x_valid = x_coords
-                edge_dx = edge_map[b, 0]  # 垂直方向のエッジ
-                edge_dy = edge_map[b, 1]  # 水平方向のエッジ
-
-                edge_norms = torch.sqrt(edge_dx**2 + edge_dy**2)
-                edge_dx = edge_dx / (edge_norms + 1e-6)
-                edge_dy = edge_dy / (edge_norms + 1e-6)
+            # print(f"vps: {vps.shape}")
+            valid_vp_count = 0
+            for n in range(vps.shape[0]):  # 消失点の数でループ
+                vp = vps[n]
+                vp_x, vp_y = vp[0].item(), vp[1].item()  # テンソルから数値に変換
+                # print(f"vp: {vp_x}, {vp_y}")
+                if vp_x == -1 and vp_y == -1:
+                    continue
+                valid_vp_count += 1
 
                 # パラメトリック方程式のパラメータtを計算
                 # (x, y) = (x0, y0) + t * (dy, -dx) ←(x0, y0)を通る方向ベクトル(dy, -dx)の直線
@@ -184,26 +194,29 @@ class AdditionalLossCalculator:
                 # 直線と円の交点が存在する条件は以下を満たすtが存在すること。
                 # (x0 + t*(dy) - vp_x)^2 + (y0 + t*(-dx) - vp_y)^2 = 10^2
 
-                a = edge_dx**2 + edge_dy**2  # t^2の係数
+                a = edge_dx.pow(2) + edge_dy.pow(2)  # t^2の係数
                 b = 2 * (
                     (x_valid - vp_x) * edge_dy + (y_valid - vp_y) * (-edge_dx)
                 )  # tの係数
                 c = (
-                    (x_valid - vp_x) ** 2
-                    + (y_valid - vp_y) ** 2
+                    (x_valid - vp_x).pow(2)
+                    + (y_valid - vp_y).pow(2)
                     - self.distance_from_vanishing_point**2
                 )  # 定数項（半径10の二乗）
-
                 # 判別式
-                discriminant = b**2 - 4 * a * c
+                discriminant = b.pow(2) - 4 * a * c
+                # print(f"discriminant: {discriminant}")
 
                 # バイナリな判定の代わりにシグモイド関数で滑らかに遷移
                 temperature = 10.0  # シグモイドの急峻さを調整
                 valid_edges = torch.sigmoid(temperature * discriminant)
                 # エッジの強度も考慮
-                edge_weights = edge_magnitude * valid_edges
+                edge_weights = torch.mul(edge_magnitude, valid_edges)
                 batch_total += torch.sum(edge_weights)
-            result[b] = batch_total
+                # print(f"vp_x: {vp_x}, vp_y: {vp_y}, batch_total: {batch_total}")
+            result[batch_idx] = (
+                batch_total / valid_vp_count / H / W if valid_vp_count > 0 else 0
+            )
         return result
 
     def calc_additional_loss(self, original_images, pred_images, vanishing_points):
@@ -222,3 +235,32 @@ class AdditionalLossCalculator:
             original_edge_to_vanishing_point, pred_edge_to_vanishing_point
         )
         return loss
+
+    def save_images(self, images, prefix):
+        """
+        バッチ内の画像を保存する関数
+
+        Args:
+            images (torch.Tensor): [B, 3, H, W] の画像テンソル
+            prefix (str): 保存するファイル名のプレフィックス
+        """
+
+        # 保存ディレクトリの作成
+        save_dir = "generated_images"
+        os.makedirs(save_dir, exist_ok=True)
+
+        # タイムスタンプの取得
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # バッチ内の各画像を保存
+        for i in range(images.shape[0]):
+            # [-1, 1]の範囲を[0, 1]に変換
+            img = (images[i].clamp(-1, 1) + 1) / 2
+
+            # ファイル名の生成
+            filename = f"{prefix}_{timestamp}_batch{i}.png"
+            filepath = os.path.join(save_dir, filename)
+
+            # 画像の保存
+            save_image(img, filepath)
+            print(f"Saved image to {filepath}")

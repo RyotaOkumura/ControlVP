@@ -6,5 +6,5 @@ dataset:
 training:
   threshold:
     distance_from_vanishing_point: 10
-  additional_loss_weight: 0.01
+  additional_loss_weight: 0.1
 
