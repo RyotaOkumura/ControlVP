@@ -1,6 +1,6 @@
 accelerate launch train_controlnet_w_additional.py \
  --pretrained_model_name_or_path="stabilityai/stable-diffusion-2-1" \
- --output_dir="model_out_w_additional" \
+ --output_dir="model_out_w_additional_2" \
  --dataset_name=/srv/datasets3/HoliCity/dataset_w_vpts \
  --conditioning_image_column=conditioning \
  --image_column=image \
@@ -12,3 +12,4 @@ accelerate launch train_controlnet_w_additional.py \
  --tracker_project_name="controlnet" \
  --enable_xformers_memory_efficient_attention \
  --checkpointing_steps=5000 \
+ --resume_from_checkpoint="latest"

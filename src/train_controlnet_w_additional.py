@@ -34,7 +34,7 @@ import transformers
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
-from datasets import load_dataset, load_from_disk
+from datasets import load_from_disk
 from huggingface_hub import create_repo, upload_folder
 from packaging import version
 from PIL import Image
@@ -761,18 +761,29 @@ def make_train_dataset(args, tokenizer, accelerator):
 
     def tokenize_captions(examples, is_train=True):
         captions = []
+        default_prompt = "modern buildings, high quality, photorealistic"  # デフォルトのプロンプトを設定
+
         for caption in examples[caption_column]:
             if random.random() < args.proportion_empty_prompts:
-                captions.append("")
+                captions.append(
+                    default_prompt
+                )  # 空の代わりにデフォルトプロンプトを使用
             elif isinstance(caption, str):
-                captions.append(caption)
+                # 空文字列の場合もデフォルトプロンプトを使用
+                captions.append(default_prompt if caption.strip() == "" else caption)
             elif isinstance(caption, (list, np.ndarray)):
-                # take a random caption if there are multiple
-                captions.append(random.choice(caption) if is_train else caption[0])
+                # リストの場合、ランダムに選択したキャプションが空文字列ならデフォルトプロンプトを使用
+                selected_caption = random.choice(caption) if is_train else caption[0]
+                captions.append(
+                    default_prompt
+                    if selected_caption.strip() == ""
+                    else selected_caption
+                )
             else:
                 raise ValueError(
                     f"Caption column `{caption_column}` should contain either strings or lists of strings."
                 )
+
         inputs = tokenizer(
             captions,
             max_length=tokenizer.model_max_length,
@@ -1448,9 +1459,10 @@ def main(args):
                 additional_loss = additional_loss_calculator.calc_additional_loss(
                     batch["pixel_values"], generated_images, batch["vanishing_points"]
                 )
+                # print(f"original loss: {loss}")
                 loss += config["training"]["additional_loss_weight"] * additional_loss
-                # print(f"additional_loss: {additional_loss}")
-                # print(f"loss: {loss}")
+                # print(f"additional loss: {additional_loss}")
+                # print(f"overall loss: {loss}")
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
                     params_to_clip = controlnet.parameters()

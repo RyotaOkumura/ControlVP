@@ -7,12 +7,16 @@ import os
 import sys
 
 sys.path.append(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
 )
 from src.additional_loss import AdditionalLossCalculator
 
 FOCAL_LENGTH = 1
 IMAGE_SIZE = 512
+
+# 消失点から半径10の円に交差するエッジを計算する
 
 
 # 3D座標から2D座標への変換 (学習でつかっているものと同一)
@@ -69,7 +73,7 @@ def calc_edge_to_vanishing_point(edge_map, vanishing_points):
 
             a = edge_dx.pow(2) + edge_dy.pow(2)  # t^2の係数
             b = 2 * (
-                (x_valid - vp_x) * edge_dy + (y_valid - vp_y) * (-edge_dx)
+                (x_valid - vp_x) * edge_dy + (y_valid - vp_y) * (edge_dx)
             )  # tの係数
             c = (
                 (x_valid - vp_x).pow(2) + (y_valid - vp_y).pow(2) - 10**2
@@ -97,7 +101,7 @@ def main(path_img, path_vpts):
     # 消失点データの読み込み
     vpts_data = np.load(path_vpts)
     vpts_3d = vpts_data["vpts"]
-    # vpts_2d = torch.tensor([[vpt3d_to_2d(vpts_3d[0])]])
+    vpts_2d = torch.tensor([[vpt3d_to_2d(vpts_3d[0])]])
     vpts_2d = torch.tensor([[[300, 400]]])
 
     # 画像とエッジの読み込み
@@ -150,7 +154,7 @@ def main(path_img, path_vpts):
     )
 
     plt.tight_layout()
-    plt.savefig("edges_to_vpts.png")
+    plt.savefig("to_vpts1.png")
 
 
 if __name__ == "__main__":

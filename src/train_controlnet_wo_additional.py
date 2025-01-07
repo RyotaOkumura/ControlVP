@@ -761,18 +761,29 @@ def make_train_dataset(args, tokenizer, accelerator):
 
     def tokenize_captions(examples, is_train=True):
         captions = []
+        default_prompt = "modern buildings, high quality, photorealistic"  # デフォルトのプロンプトを設定
+
         for caption in examples[caption_column]:
             if random.random() < args.proportion_empty_prompts:
-                captions.append("")
+                captions.append(
+                    default_prompt
+                )  # 空の代わりにデフォルトプロンプトを使用
             elif isinstance(caption, str):
-                captions.append(caption)
+                # 空文字列の場合もデフォルトプロンプトを使用
+                captions.append(default_prompt if caption.strip() == "" else caption)
             elif isinstance(caption, (list, np.ndarray)):
-                # take a random caption if there are multiple
-                captions.append(random.choice(caption) if is_train else caption[0])
+                # リストの場合、ランダムに選択したキャプションが空文字列ならデフォルトプロンプトを使用
+                selected_caption = random.choice(caption) if is_train else caption[0]
+                captions.append(
+                    default_prompt
+                    if selected_caption.strip() == ""
+                    else selected_caption
+                )
             else:
                 raise ValueError(
                     f"Caption column `{caption_column}` should contain either strings or lists of strings."
                 )
+
         inputs = tokenizer(
             captions,
             max_length=tokenizer.model_max_length,

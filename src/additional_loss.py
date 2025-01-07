@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import os
 from torchvision.utils import save_image
 from datetime import datetime
+import numpy as np
 
 
 class AdditionalLossCalculator:
@@ -150,7 +151,77 @@ class AdditionalLossCalculator:
         pred_images = vae.decode(denoised_latents / vae.config.scaling_factor).sample
         return pred_images
 
-    def calc_edge_to_vanishing_point(self, edge_map, vanishing_points):
+    # def calc_edge_to_vanishing_point(self, edge_map, vanishing_points):
+    #     """
+    #     エッジマップのうち消失点に向かうものを計算する
+    #     edge_map: [B, 2, H, W]
+    #     vanishing_points: [B, 3, 2]
+    #     returns: [B]
+    #     """
+    #     B, _, H, W = edge_map.shape
+    #     device = edge_map.device
+    #     result = torch.zeros(B, device=device)
+
+    #     y_coords, x_coords = torch.meshgrid(
+    #         torch.arange(H, device=device),
+    #         torch.arange(W, device=device),
+    #         indexing="ij",
+    #     )
+
+    #     # バッチ内の各サンプルに対して処理
+    #     for batch_idx in range(B):
+    #         batch_total = 0
+    #         y_valid = y_coords
+    #         x_valid = x_coords
+    #         edge_map_b = edge_map[batch_idx]
+    #         edge_dx = edge_map_b[0]
+    #         edge_dy = edge_map_b[1]
+    #         edge_magnitude = torch.norm(edge_map_b, p=2, dim=0)
+    #         vps = vanishing_points[batch_idx].to(device)  # 現在のデバイスに移動
+
+    #         # print(f"vps: {vps.shape}")
+    #         valid_vp_count = 0
+    #         for n in range(vps.shape[0]):  # 消失点の数でループ
+    #             vp = vps[n]
+    #             vp_x, vp_y = vp[0].item(), vp[1].item()  # テンソルから数値に変換
+    #             # print(f"vp: {vp_x}, {vp_y}")
+    #             if vp_x == -1 and vp_y == -1:
+    #                 continue
+    #             valid_vp_count += 1
+
+    #             # パラメトリック方程式のパラメータtを計算
+    #             # (x, y) = (x0, y0) + t * (dy, -dx) ←(x0, y0)を通る方向ベクトル(dy, -dx)の直線
+    #             # (x - vp_x)^2 + (y - vp_y)^2 = 10^2 ←消失点からの距離が10の円
+    #             # 直線と円の交点が存在する条件は以下を満たすtが存在すること。
+    #             # (x0 + t*(dy) - vp_x)^2 + (y0 + t*(-dx) - vp_y)^2 = 10^2
+
+    #             a = edge_dx.pow(2) + edge_dy.pow(2)  # t^2の係数
+    #             b = 2 * (
+    #                 (x_valid - vp_x) * edge_dy + (y_valid - vp_y) * (-edge_dx)
+    #             )  # tの係数
+    #             c = (
+    #                 (x_valid - vp_x).pow(2)
+    #                 + (y_valid - vp_y).pow(2)
+    #                 - self.distance_from_vanishing_point**2
+    #             )  # 定数項（半径10の二乗）
+    #             # 判別式
+    #             discriminant = b.pow(2) - 4 * a * c
+    #             # print(f"discriminant: {discriminant}")
+
+    #             # バイナリな判定の代わりにシグモイド関数で滑らかに遷移
+    #             temperature = 10.0  # シグモイドの急峻さを調整
+    #             valid_edges = torch.sigmoid(temperature * discriminant)
+    #             # エッジの強度も考慮
+    #             edge_weights = torch.mul(edge_magnitude, valid_edges)
+    #             batch_total += torch.sum(edge_weights)
+    #             # print(f"vp_x: {vp_x}, vp_y: {vp_y}, batch_total: {batch_total}")
+    #         result[batch_idx] = (
+    #             batch_total / valid_vp_count / H / W if valid_vp_count > 0 else 0
+    #         )
+    #     return result
+    def calc_edge_to_vanishing_point(
+        self, edge_map, vanishing_points, angle_threshold=0.0
+    ):
         """
         エッジマップのうち消失点に向かうものを計算する
         edge_map: [B, 2, H, W]
@@ -173,9 +244,11 @@ class AdditionalLossCalculator:
             y_valid = y_coords
             x_valid = x_coords
             edge_map_b = edge_map[batch_idx]
-            edge_dx = edge_map_b[0]
-            edge_dy = edge_map_b[1]
-            edge_magnitude = torch.norm(edge_map_b, p=2, dim=0)
+            edge_magnitude = torch.norm(edge_map_b, p=2, dim=0).clamp(min=1e-8)
+            edge_dx = edge_map_b[0] / edge_magnitude
+            edge_dy = edge_map_b[1] / edge_magnitude
+            dir_x = edge_dy
+            dir_y = edge_dx
             vps = vanishing_points[batch_idx].to(device)  # 現在のデバイスに移動
 
             # print(f"vps: {vps.shape}")
@@ -188,32 +261,45 @@ class AdditionalLossCalculator:
                     continue
                 valid_vp_count += 1
 
-                # パラメトリック方程式のパラメータtを計算
-                # (x, y) = (x0, y0) + t * (dy, -dx) ←(x0, y0)を通る方向ベクトル(dy, -dx)の直線
-                # (x - vp_x)^2 + (y - vp_y)^2 = 10^2 ←消失点からの距離が10の円
-                # 直線と円の交点が存在する条件は以下を満たすtが存在すること。
-                # (x0 + t*(dy) - vp_x)^2 + (y0 + t*(-dx) - vp_y)^2 = 10^2
+                # 消失点への方向ベクトル（正規化）
+                vp_dy = vp[1] - y_valid
+                vp_dx = vp[0] - x_valid
+                vp_norms = torch.norm(torch.stack([vp_dx, vp_dy]), p=2, dim=0).clamp(
+                    min=1e-8
+                )
+                vp_dx = vp_dx / vp_norms
+                vp_dy = vp_dy / vp_norms
 
-                a = edge_dx.pow(2) + edge_dy.pow(2)  # t^2の係数
-                b = 2 * (
-                    (x_valid - vp_x) * edge_dy + (y_valid - vp_y) * (-edge_dx)
-                )  # tの係数
-                c = (
-                    (x_valid - vp_x).pow(2)
-                    + (y_valid - vp_y).pow(2)
-                    - self.distance_from_vanishing_point**2
-                )  # 定数項（半径10の二乗）
-                # 判別式
-                discriminant = b.pow(2) - 4 * a * c
-                # print(f"discriminant: {discriminant}")
+                # 方向ベクトル間の内積を計算（cosθ）
+                cos_theta = torch.abs(dir_x * vp_dx + dir_y * vp_dy)
+                # θを計算（ラジアン） 0-π
+                theta = torch.acos(
+                    torch.clamp(cos_theta, -0.999999, 0.999999)
+                )  # numerical stabilityのためclamp
+                # nanが含まれるかチェック
+                # デバッグ用の値チェック追加
+                if torch.isnan(theta).any():
+                    print("Warning: NaN in theta calculation")
+                    print(
+                        f"cos_theta range: {cos_theta.min():.6f} to {cos_theta.max():.6f}"
+                    )
+                    print(
+                        f"edge_magnitude range: {edge_magnitude.min():.6f} to {edge_magnitude.max():.6f}"
+                    )
+                # 角度の閾値
+                angle_threshold = torch.tensor(
+                    angle_threshold * np.pi / 180.0, device=device
+                )
 
-                # バイナリな判定の代わりにシグモイド関数で滑らかに遷移
-                temperature = 10.0  # シグモイドの急峻さを調整
-                valid_edges = torch.sigmoid(temperature * discriminant)
-                # エッジの強度も考慮
-                edge_weights = torch.mul(edge_magnitude, valid_edges)
+                # temperatureを使用してシグモイド関数を適用
+                temperature = 5.0
+                valid_edges = 2 * torch.sigmoid(temperature * (angle_threshold - theta))
+                # nanが含まれるかチェック
+                if torch.isnan(valid_edges).any():
+                    print("valid_edgesにnanが含まれています")
+                    continue
+                edge_weights = edge_magnitude * valid_edges
                 batch_total += torch.sum(edge_weights)
-                # print(f"vp_x: {vp_x}, vp_y: {vp_y}, batch_total: {batch_total}")
             result[batch_idx] = (
                 batch_total / valid_vp_count / H / W if valid_vp_count > 0 else 0
             )

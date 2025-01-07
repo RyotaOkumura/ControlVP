@@ -2,7 +2,6 @@ from datasets import load_from_disk
 from PIL import Image
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
-import os
 
 
 def load_target_image(image_path: str) -> np.ndarray:
