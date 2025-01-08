@@ -1334,15 +1334,6 @@ def main(args):
                 controlnet_image = batch["conditioning_pixel_values"].to(
                     dtype=weight_dtype
                 )
-                # print("\n")
-                # print("=== ControlNet Input Check ===")
-                # print(
-                #     f"controlnet_image stats: min={controlnet_image.min()}, max={controlnet_image.max()}, mean={controlnet_image.mean()}"
-                # )
-                # print(f"timesteps: {timesteps}")
-                # print(
-                #     f"encoder_hidden_states stats: min={encoder_hidden_states.min()}, max={encoder_hidden_states.max()}, mean={encoder_hidden_states.mean()}"
-                # )
                 down_block_res_samples, mid_block_res_sample = controlnet(
                     noisy_latents,
                     timesteps,
@@ -1350,27 +1341,6 @@ def main(args):
                     controlnet_cond=controlnet_image,
                     return_dict=False,
                 )
-                # 入力値のチェック
-                # print("\n")
-                # print("=== UNet Input Check ===")
-                # print(
-                #     f"noisy_latents stats: min={noisy_latents.min()}, max={noisy_latents.max()}, mean={noisy_latents.mean()}"
-                # )
-                # print(f"timesteps: {timesteps}")
-                # print(
-                #     f"encoder_hidden_states stats: min={encoder_hidden_states.min()}, max={encoder_hidden_states.max()}, mean={encoder_hidden_states.mean()}"
-                # )
-
-                # # residualsのチェック
-                # print("\n")
-                # print("=== Residuals Check ===")
-                # for i, sample in enumerate(down_block_res_samples):
-                #     print(
-                #         f"down_block_res_sample {i} stats: min={sample.min()}, max={sample.max()}, mean={sample.mean()}"
-                #     )
-                # print(
-                #     f"mid_block_res_sample stats: min={mid_block_res_sample.min()}, max={mid_block_res_sample.max()}, mean={mid_block_res_sample.mean()}"
-                # )  # Predict the noise residual
                 model_pred = unet(
                     noisy_latents,
                     timesteps,
@@ -1408,12 +1378,14 @@ def main(args):
                 sys.path.append(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 )
-                from src.additional_loss import AdditionalLossCalculator
+                # from src.additional_loss import AdditionalLossCalculator
+                from src.additional_loss_kornia import AdditionalLossCalculatorKornia
                 from src.config import config
 
-                additional_loss_calculator = AdditionalLossCalculator(
-                    config["training"]["threshold"]["distance_from_vanishing_point"]
-                )
+                # additional_loss_calculator = AdditionalLossCalculator(
+                #     config["training"]["threshold"]["distance_from_vanishing_point"]
+                # )
+                additional_loss_calculator = AdditionalLossCalculatorKornia()
                 middle_timesteps = (timesteps // 2).to(timesteps.device)
                 middle_latents = additional_loss_calculator.predict_denoised_latent(
                     noise_scheduler,

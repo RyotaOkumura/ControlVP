@@ -134,7 +134,7 @@ def main(path_img, path_vpts=None, vpts_2d=None):
     plt.title("Edge Map in Direction to VP")
 
     plt.tight_layout()
-    plt.savefig("to_vpts2.png")
+    plt.savefig("src/trial/images/to_vpts3.png")
     return result[0]
 
 

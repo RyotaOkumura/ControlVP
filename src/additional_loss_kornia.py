@@ -120,94 +120,6 @@ class AdditionalLossCalculatorKornia:
         pred_images = vae.decode(denoised_latents / vae.config.scaling_factor).sample
         return pred_images
 
-    # def calc_edge_to_vanishing_point(
-    #     self, edge_map, vanishing_points, angle_threshold=0.0
-    # ):
-    #     """
-    #     エッジマップのうち消失点に向かうものを計算する
-    #     edge_map: [B, 2, H, W]
-    #     vanishing_points: [B, 3, 2]
-    #     returns: [B]
-    #     """
-    #     B, _, H, W = edge_map.shape
-    #     device = edge_map.device
-    #     result = torch.zeros(B, device=device)
-
-    #     edge_magnitudes = self.detect_canny_edges(edge_map)
-
-    #     y_coords, x_coords = torch.meshgrid(
-    #         torch.arange(H, device=device),
-    #         torch.arange(W, device=device),
-    #         indexing="ij",
-    #     )
-
-    #     # バッチ内の各サンプルに対して処理
-    #     for batch_idx in range(B):
-    #         batch_total = 0
-    #         y_valid = y_coords
-    #         x_valid = x_coords
-    #         edge_map_b = edge_map[batch_idx]
-    #         edge_magnitude = torch.norm(edge_map_b, p=2, dim=0).clamp(min=1e-8)
-    #         edge_dx = edge_map_b[0] / edge_magnitude
-    #         edge_dy = edge_map_b[1] / edge_magnitude
-    #         dir_x = edge_dy
-    #         dir_y = edge_dx
-    #         vps = vanishing_points[batch_idx].to(device)  # 現在のデバイスに移動
-
-    #         # print(f"vps: {vps.shape}")
-    #         valid_vp_count = 0
-    #         for n in range(vps.shape[0]):  # 消失点の数でループ
-    #             vp = vps[n]
-    #             vp_x, vp_y = vp[0].item(), vp[1].item()  # テンソルから数値に変換
-    #             # print(f"vp: {vp_x}, {vp_y}")
-    #             if vp_x == -1 and vp_y == -1:
-    #                 continue
-    #             valid_vp_count += 1
-
-    #             # 消失点への方向ベクトル（正規化）
-    #             vp_dy = vp[1] - y_valid
-    #             vp_dx = vp[0] - x_valid
-    #             vp_norms = torch.norm(torch.stack([vp_dx, vp_dy]), p=2, dim=0).clamp(
-    #                 min=1e-8
-    #             )
-    #             vp_dx = vp_dx / vp_norms
-    #             vp_dy = vp_dy / vp_norms
-
-    #             # 方向ベクトル間の内積を計算（cosθ）
-    #             cos_theta = torch.abs(dir_x * vp_dx + dir_y * vp_dy)
-    #             # θを計算（ラジアン） 0-π
-    #             theta = torch.acos(
-    #                 torch.clamp(cos_theta, -0.999999, 0.999999)
-    #             )  # numerical stabilityのためclamp
-    #             # nanが含まれるかチェック
-    #             # デバッグ用の値チェック追加
-    #             if torch.isnan(theta).any():
-    #                 print("Warning: NaN in theta calculation")
-    #                 print(
-    #                     f"cos_theta range: {cos_theta.min():.6f} to {cos_theta.max():.6f}"
-    #                 )
-    #                 print(
-    #                     f"edge_magnitude range: {edge_magnitude.min():.6f} to {edge_magnitude.max():.6f}"
-    #                 )
-    #             # 角度の閾値
-    #             angle_threshold = torch.tensor(
-    #                 angle_threshold * np.pi / 180.0, device=device
-    #             )
-
-    #             # temperatureを使用してシグモイド関数を適用
-    #             temperature = 5.0
-    #             valid_edges = 2 * torch.sigmoid(temperature * (angle_threshold - theta))
-    #             # nanが含まれるかチェック
-    #             if torch.isnan(valid_edges).any():
-    #                 print("valid_edgesにnanが含まれています")
-    #                 continue
-    #             edge_weights = edge_magnitude * valid_edges
-    #             batch_total += torch.sum(edge_weights)
-    #         result[batch_idx] = (
-    #             batch_total / valid_vp_count / H / W if valid_vp_count > 0 else 0
-    #         )
-    #     return result
-
     def calc_scores(
         self, edges, magnitudes, vanishing_points, angle_threshold=0.0, eps=1e-8
     ):
@@ -216,6 +128,8 @@ class AdditionalLossCalculatorKornia:
         edges: [B, C, 2, H, W]
         magnitudes: [B, C, H, W]
         vanishing_points: [B, 3, 2]
+        angle_threshold: 角度閾値（度）
+        eps: 小さい値
         returns: [B]
         """
         B, C, _, H, W = edges.shape
@@ -239,22 +153,30 @@ class AdditionalLossCalculatorKornia:
             valid_vp_count = 0
             for vp in vps:
                 vp_x, vp_y = vp[0].item(), vp[1].item()
+                # 消失点がダミー(-1, -1)である場合は無効とする
                 is_valid_vp = ~((vp[0] == -1) & (vp[1] == -1))
                 valid_vp_count += is_valid_vp.float()
+                # 各ピクセルから消失点への単位方向ベクトルを計算
                 vp_dx = vp_x - x_coords
                 vp_dy = vp_y - y_coords
                 vp_norms = torch.sqrt(vp_dx * vp_dx + vp_dy * vp_dy + eps)
                 vp_dx = vp_dx / vp_norms
                 vp_dy = vp_dy / vp_norms
+                # 内積によりcosθを計算
                 cos_theta = torch.abs(dir_x * vp_dx + dir_y * vp_dy)
+                # 角度θを計算（radで0-2pi)
                 theta = torch.acos(torch.clamp(cos_theta, -0.999999, 0.999999))
+                # 角度閾値を計算（度からラジアンに変換）
                 angle_threshold = torch.tensor(
                     angle_threshold * np.pi / 180.0, device=device
                 )
+                # シグモイド関数によりエッジの有効性を計算。角度差thetaが小さいほど大きな重みを与える
                 temperature = 5.0
                 valid_edges = 2 * torch.sigmoid(temperature * (angle_threshold - theta))
+                # エッジ強度*有効エッジの和をとる
                 edge_weights = magnitude * valid_edges
                 batch_total += torch.sum(edge_weights) * is_valid_vp.float()
+            # 有効な消失点の数で正規化
             result[batch] = batch_total / (valid_vp_count + eps) / H / W
         return result
 

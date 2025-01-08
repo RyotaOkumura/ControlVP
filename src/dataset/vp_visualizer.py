@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import random
 
 
 class VanishingPointVisualizer:
@@ -17,16 +18,17 @@ class VanishingPointVisualizer:
     def _create_radial_pattern(self, center, colors):
         h, w = self.image_size
         y, x = np.ogrid[:h, :w]
-
         angles = np.degrees(np.arctan2(y - center[1], x - center[0]))
         angles = (angles + 180) % 360
 
         pattern = np.zeros((h, w, 4), dtype=np.float32)  # BGRAで4チャンネル
 
         num_sections = 360 // self.angle_step
+        bias = random.randint(0, self.angle_step - 1)
+
         for i in range(num_sections):
-            start_angle = i * self.angle_step
-            end_angle = (i + 1) * self.angle_step
+            start_angle = i * self.angle_step + bias
+            end_angle = (i + 1) * self.angle_step + bias
             color_idx = i % len(colors)
 
             mask = (angles >= start_angle) & (angles < end_angle)
@@ -70,7 +72,7 @@ class VanishingPointVisualizer:
 
 
 if __name__ == "__main__":
-    visualizer = VanishingPointVisualizer(image_size=(512, 512), angle_step=10)
+    visualizer = VanishingPointVisualizer(image_size=(512, 512), angle_step=5)
 
     # テスト用の点（3点未満のケースも試す）
     points = [(256, 256), (128, 384), (384, 128)]  # 中心, 左下, 右上

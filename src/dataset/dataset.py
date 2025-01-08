@@ -43,7 +43,7 @@ def create_dataset_from_images(image_base_dir, vpts_base_dir):
     # Visualizerを初期化
     visualizer = VanishingPointVisualizer(
         image_size=(512, 512),
-        angle_step=10,
+        angle_step=5,
     )
     # 画像とconditioningを読み込む
     images = [Image.open(path) for path in image_paths]
