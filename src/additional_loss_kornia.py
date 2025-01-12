@@ -180,7 +180,9 @@ class AdditionalLossCalculatorKornia:
             result[batch] = batch_total / (valid_vp_count + eps) / H / W
         return result
 
-    def calc_additional_loss(self, original_images, pred_images, vanishing_points):
+    def calc_additional_loss(
+        self, original_images, pred_images, vanishing_points, timesteps_mask, eps=1e-8
+    ):
         """
         元の画像と予測画像の差分を計算する関数
         """
@@ -194,7 +196,11 @@ class AdditionalLossCalculatorKornia:
             edges_original, magnitudes_original, vanishing_points
         )
         scores_pred = self.calc_scores(edges_pred, magnitudes_pred, vanishing_points)
-        loss = F.mse_loss(scores_original, scores_pred)
+        masked_scores_original = scores_original * timesteps_mask
+        masked_scores_pred = scores_pred * timesteps_mask
+        loss = F.mse_loss(
+            masked_scores_original, masked_scores_pred, reduction="sum"
+        ) / (timesteps_mask.sum() + eps)
         return loss
 
     def save_images(self, images, prefix):

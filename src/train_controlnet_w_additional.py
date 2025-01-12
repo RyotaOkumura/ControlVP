@@ -1428,9 +1428,16 @@ def main(args):
                     additional_loss_calculator.save_images(
                         generated_images, f"step_{step}"
                     )
+                    # print(f"timesteps: {timesteps}")
+                    # print(f"config:{noise_scheduler.config.num_train_timesteps}")
+                timesteps_mask = (timesteps <= 500).float()
                 additional_loss = additional_loss_calculator.calc_additional_loss(
-                    batch["pixel_values"], generated_images, batch["vanishing_points"]
-                )
+                    batch["pixel_values"],
+                    generated_images,
+                    batch["vanishing_points"],
+                    timesteps_mask,
+                ) 
+
                 # print(f"original loss: {loss}")
                 loss += config["training"]["additional_loss_weight"] * additional_loss
                 # print(f"additional loss: {additional_loss}")
