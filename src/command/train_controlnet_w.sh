@@ -1,6 +1,8 @@
-accelerate launch train_controlnet_w_additional.py \
+accelerate launch \
+ --main_process_port=35902 \
+ train_controlnet_w_additional.py \
  --pretrained_model_name_or_path="stabilityai/stable-diffusion-2-1" \
- --output_dir="model_out_w_additional_canny_mask_10000" \
+ --output_dir="model_out_w_additional_canny_mask_1000" \
  --dataset_name=/srv/datasets3/HoliCity/dataset_w_vpts_ang-5 \
  --conditioning_image_column=conditioning \
  --image_column=image \
@@ -11,4 +13,4 @@ accelerate launch train_controlnet_w_additional.py \
  --num_train_epochs=10000 \
  --tracker_project_name="controlnet" \
  --enable_xformers_memory_efficient_attention \
- --checkpointing_steps=5000 \
+ --checkpointing_steps=5000 
