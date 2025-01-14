@@ -30,7 +30,7 @@ def overlay_vanishing_point(image, vanishing_points):
     h, w = img_array.shape[:2]
 
     # 角度のステップ（10度ごと）
-    angle_step = 10
+    angle_step = 5
     angles = np.arange(0, 360, angle_step)
 
     # 各消失点について処理
@@ -70,7 +70,7 @@ def main(
 
     vp_visualizer = VanishingPointVisualizer(
         image_size=(512, 512),
-        angle_step=10,
+        angle_step=5,
     )
     conditioning_image = vp_visualizer.create_condition_image(vanishing_point)
     conditioning_image = Image.fromarray(conditioning_image)
@@ -120,7 +120,7 @@ def main(
     # ControlNetを使用した画像生成
     generator = torch.manual_seed(seed)
     controlnet_images = pipe(
-        "modern buildings, high quality, photorealistic",
+        "buildings, high quality, photorealistic",
         num_inference_steps=50,
         generator=generator,
         image=conditioning_image,
@@ -143,14 +143,12 @@ def main(
 
 
 if __name__ == "__main__":
-    model_name = "/home/okumura/lab/vanishing_point/src/model_out_w_additional_2/checkpoint-180000/controlnet"
-    # model_name = (
-    #     "/home/okumura/lab/vanishing_point/src/model_out/checkpoint-575000/controlnet"
-    # )
-    vanishing_point = np.array([[900, 300]])
-    guidance_scale = 5.0
-    controlnet_conditioning_scale = 0.200
-    seed = 7
+    # model_name = "/home/okumura/lab/vanishing_point/src/model_out_w_additional_canny_mask_10000/checkpoint-80000/controlnet"
+    model_name = "/home/okumura/lab/vanishing_point/src/model_out_w_additional_canny_mask_1000/checkpoint-60000/controlnet"
+    vanishing_point = np.array([[900, 400]])
+    guidance_scale = 7.0
+    controlnet_conditioning_scale = 0.400
+    seed = 1
     main(
         vanishing_point, model_name, guidance_scale, controlnet_conditioning_scale, seed
     )

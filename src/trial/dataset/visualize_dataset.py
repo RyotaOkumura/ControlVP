@@ -6,7 +6,9 @@ def show_dataset(dataset_path: str, idx: int):
     data = dataset[idx]
     image = data["image"]
     conditioning = data["conditioning"]
-    image.save(f"image_{idx}.png")
+    vpts = data["vanishing_points"]
+    print(vpts)
+    # image.save(f"image_{idx}.png")
     # conditioning.save(f"conditioning_{idx}.png")
 
 

@@ -174,18 +174,8 @@ cython_debug/
 
 wandb/
 
-model_out
-
 generated_images/
 
-model_out_w_additional
-
-model_out_w_additional_2
-
-model_out_w_additional_canny/
-
-model_out_w_additional_canny_mask_10000/
-
-model_out_w_additional_canny_mask_1000/
+model_out*
 
 src/trial/images/
