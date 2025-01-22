@@ -4,7 +4,6 @@ from diffusers import (
     StableDiffusionPipeline,
     ControlNetModel,
     UniPCMultistepScheduler,
-    AutoPipelineForImage2Image,
 )
 from datasets import load_from_disk
 import numpy as np
@@ -31,7 +30,7 @@ def overlay_vanishing_point(image, vanishing_points):
     h, w = img_array.shape[:2]
 
     # 角度のステップ（10度ごと）
-    angle_step = 10
+    angle_step = 5
     angles = np.arange(0, 360, angle_step)
 
     # 各消失点について処理
@@ -63,48 +62,42 @@ def overlay_vanishing_point(image, vanishing_points):
 
 
 def main(
-    vanishing_point,
-    model_name,
-    guidance_scale,
-    controlnet_conditioning_scale,
-    seed,
-    dataset_num,
-    strength,
+    vanishing_point, model_name, guidance_scale, controlnet_conditioning_scale, seed
 ):
     # download an image
-    dataset = load_from_disk("/srv/datasets3/HoliCity/dataset_w_vpts")
-    conditioning_image = dataset[dataset_num]["conditioning"]
-    input_image = dataset[dataset_num]["image"]
-    input_image.save("input_image.png")
+    # dataset = load_from_disk("/srv/datasets3/HoliCity/dataset_w_vpts")
+    # conditioning_image = dataset[5]["conditioning"]
 
-    # vp_visualizer = VanishingPointVisualizer(
-    #     image_size=(512, 512),
-    #     angle_step=10,
-    # )
-    # conditioning_image = vp_visualizer.create_condition_image(vanishing_point)
-    # conditioning_image = Image.fromarray(conditioning_image)
+    vp_visualizer = VanishingPointVisualizer(
+        image_size=(512, 512),
+        angle_step=5,
+    )
+    conditioning_image = vp_visualizer.create_condition_image(vanishing_point)
+    conditioning_image = Image.fromarray(conditioning_image)
     # load control net and stable diffusion v1-5
     controlnet = ControlNetModel.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
     )
-    controlnet_pipe = AutoPipelineForImage2Image.from_pretrained(
+    # controlnet = ControlNetModel.from_pretrained(
+    #     "/home/okumura/lab/vanishing_point/src/model_out/checkpoint-480000/controlnet",
+    #     torch_dtype=torch.float16,
+    # )
+    pipe = StableDiffusionControlNetPipeline.from_pretrained(
         "stabilityai/stable-diffusion-2-1",
         controlnet=controlnet,
         torch_dtype=torch.float16,
     )
 
     # speed up diffusion process with faster scheduler and memory optimization
-    controlnet_pipe.scheduler = UniPCMultistepScheduler.from_config(
-        controlnet_pipe.scheduler.config
-    )
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
     # remove following line if xformers is not installed
-    controlnet_pipe.enable_xformers_memory_efficient_attention()
+    pipe.enable_xformers_memory_efficient_attention()
 
-    controlnet_pipe.enable_model_cpu_offload()
+    pipe.enable_model_cpu_offload()
 
     # 通常のStable Diffusion パイプラインを設定
-    base_pipe = AutoPipelineForImage2Image.from_pretrained(
+    base_pipe = StableDiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-2-1",
         torch_dtype=torch.float16,
     )
@@ -116,30 +109,24 @@ def main(
 
     # 通常のStable Diffusionで画像生成
     generator = torch.manual_seed(seed)
-    # prompt = "modern buildings, high quality, photorealistic"
-    prompt = "buildings, road, sky, high quality, photo realistic"
     base_images = base_pipe(
-        prompt=prompt,
+        "modern buildings, high quality, photorealistic",
         num_inference_steps=50,
         generator=generator,
-        num_images_per_prompt=10,
+        num_images_per_prompt=5,
         guidance_scale=guidance_scale,
-        image=input_image,
-        strength=strength,
     ).images
 
     # ControlNetを使用した画像生成
     generator = torch.manual_seed(seed)
-    controlnet_images = controlnet_pipe(
-        prompt=prompt,
+    controlnet_images = pipe(
+        "buildings, high quality, photorealistic",
         num_inference_steps=50,
         generator=generator,
-        control_image=conditioning_image,
-        num_images_per_prompt=10,
+        image=conditioning_image,
+        num_images_per_prompt=5,
         guidance_scale=guidance_scale,
         controlnet_conditioning_scale=controlnet_conditioning_scale,
-        image=input_image,
-        strength=strength,
     ).images
 
     # 画像の保存
@@ -149,29 +136,19 @@ def main(
     for i, image in enumerate(controlnet_images):
         image.save(f"controlnet_output_{i}.png")
 
-    # # 消失点の線を重ねる
-    # for i, image in enumerate(controlnet_images):
-    #     image_with_lines = overlay_vanishing_point(image, vanishing_point)
-    #     image_with_lines.save(f"controlnet_output_{i}_with_lines.png")
+    # 消失点の線を重ねる
+    for i, image in enumerate(controlnet_images):
+        image_with_lines = overlay_vanishing_point(image, vanishing_point)
+        image_with_lines.save(f"controlnet_output_{i}_with_lines.png")
 
 
 if __name__ == "__main__":
-    model_name = "/home/okumura/lab/vanishing_point/src/model_out_w_additional_2/checkpoint-190000/controlnet"
-    # model_name = (
-    #     "/home/okumura/lab/vanishing_point/src/model_out/checkpoint-575000/controlnet"
-    # )
-    vanishing_point = np.array([[900, 300]])
-    guidance_scale = 7.5
-    controlnet_conditioning_scale = 0.20
-    seed = 10
-    dataset_num = 11
-    strength = 0.65
+    # model_name = "/home/okumura/lab/vanishing_point/ckpt/model_out_w_additional_canny_mask_10000/checkpoint-80000/controlnet"
+    model_name = "/home/okumura/lab/vanishing_point/ckpt/model_out_w_additional_canny_mask_1000/checkpoint-60000/controlnet"
+    vanishing_point = np.array([[900, 400]])
+    guidance_scale = 7.0
+    controlnet_conditioning_scale = 0.200
+    seed = 1
     main(
-        vanishing_point,
-        model_name,
-        guidance_scale,
-        controlnet_conditioning_scale,
-        seed,
-        dataset_num,
-        strength,
+        vanishing_point, model_name, guidance_scale, controlnet_conditioning_scale, seed
     )

@@ -5,6 +5,7 @@ accelerate launch \
  --output_dir="model_out_w_additional_canny_mask_1000" \
  --dataset_name=/srv/datasets3/HoliCity/dataset_w_vpts_ang-5 \
  --conditioning_image_column=conditioning \
+ --edge_column=edges \
  --image_column=image \
  --caption_column=caption \
  --resolution=512 \

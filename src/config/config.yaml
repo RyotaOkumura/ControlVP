@@ -1,7 +1,7 @@
 dataset:
   image_base_dir: "/srv/datasets3/HoliCity/images"
-  vpts_base_dir: "/srv/datasets3/HoliCity/vanishing_points/"
-  dataset_dir: "/srv/datasets3/HoliCity/dataset_w_vpts_ang-5/"
+  vpts_base_dir: "/srv/datasets3/HoliCity/vpts-w-edges/"
+  dataset_dir: "/srv/datasets3/HoliCity/dataset_w_vpts_edges/"
 
 training:
   threshold:

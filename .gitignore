@@ -176,6 +176,8 @@ wandb/
 
 generated_images/
 
-model_out*
+ckpt/
 
 src/trial/images/
+
+**/output/

@@ -117,7 +117,7 @@ def main(path_img, path_vpts=None, vpts_2d=None):
         vpts_2d = vpts_2d
 
     # 画像とエッジの読み込み
-    image = Image.open(path_img)
+    image = Image.open(path_img).convert("RGB")
     transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -137,48 +137,49 @@ def main(path_img, path_vpts=None, vpts_2d=None):
     result, edge_weights = calc_edge_to_vanishing_point(edges, vpts_2d)
     print(result[0])
     # 可視化
-    # plt.figure(figsize=(20, 5))
+    plt.figure(figsize=(20, 5))
 
-    # # 元画像
-    # plt.subplot(151)
-    # plt.imshow(image)
-    # plt.title("Original Image")
+    # 元画像
+    plt.subplot(151)
+    plt.imshow(image)
+    plt.title("Original Image")
 
-    # # エッジ強度マップ
-    # plt.subplot(152)
-    # plt.imshow(edge_magnitude.cpu(), cmap="hot")
-    # plt.title("Edge Magnitude Map")
+    # エッジ強度マップ
+    plt.subplot(152)
+    plt.imshow(edge_magnitude.cpu(), cmap="hot")
+    plt.title("Edge Magnitude Map")
 
-    # plt.subplot(153)
-    # plt.imshow(edge_x, cmap="bwr")  # bwrカラーマップを使用して正負を区別
-    # plt.title("Edge X Component")
+    plt.subplot(153)
+    plt.imshow(edge_x, cmap="bwr")  # bwrカラーマップを使用して正負を区別
+    plt.title("Edge X Component")
 
-    # plt.subplot(154)
-    # plt.imshow(edge_y, cmap="bwr")
-    # plt.title("Edge Y Component")
+    plt.subplot(154)
+    plt.imshow(edge_y, cmap="bwr")
+    plt.title("Edge Y Component")
 
-    # # 消失点方向のエッジ
-    # plt.subplot(155)
-    # plt.imshow(edge_weights * 10, cmap="hot")
-    # plt.title(
-    #     f"Edges to VP1 ({float(vpts_2d[0][0][0]):.1f}, {float(vpts_2d[0][0][1]):.1f})"
-    # )
+    # 消失点方向のエッジ
+    plt.subplot(155)
+    plt.imshow(edge_weights * 10, cmap="hot")
+    plt.title(
+        f"Edges to VP1 ({float(vpts_2d[0][0][0]):.1f}, {float(vpts_2d[0][0][1]):.1f})"
+    )
 
-    # plt.tight_layout()
-    # plt.savefig("to_vpts2.png")
+    plt.tight_layout()
+    plt.savefig("to_vpts2.png")
     return result[0]
 
 
 if __name__ == "__main__":
     path_img = "/srv/datasets3/HoliCity/images/2008-07/8heFyix0weuW7Kzd6A_BLg_LD_030_41_imag.jpg"
+    path_img = "/home/okumura/lab/vanishing_point/for_edge.png"
     path_vpts = "/srv/datasets3/HoliCity/vanishing_points/2008-07/8heFyix0weuW7Kzd6A_BLg_LD_030_41_vpts.npz"
-    vpts_2d = torch.tensor([[[400.0, 300.0]]])
-    gt = main(path_img, path_vpts)
+    vpts_2d = torch.tensor([[[180.0, 160.0]]])
+    gt = main(path_img, path_vpts, vpts_2d)
 
-    # 他の座標でグリッドサーチし、gtを超えるものを抽出する
-    for x in range(-512, 1024, 128):
-        for y in range(-512, 1024, 128):
-            vpts_2d = torch.tensor([[[float(x), float(y)]]])
-            score = main(path_img, path_vpts, vpts_2d)
-            if score > gt:
-                print(f"x: {x}, y: {y}, score: {score}")
+    # # 他の座標でグリッドサーチし、gtを超えるものを抽出する
+    # for x in range(-512, 1024, 128):
+    #     for y in range(-512, 1024, 128):
+    #         vpts_2d = torch.tensor([[[float(x), float(y)]]])
+    #         score = main(path_img, path_vpts, vpts_2d)
+    #         if score > gt:
+    #             print(f"x: {x}, y: {y}, score: {score}")

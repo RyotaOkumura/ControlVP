@@ -9,12 +9,9 @@ from datasets import load_from_disk
 import numpy as np
 import torch
 from PIL import Image
-import os
-import sys
 import cv2
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.dataset.vp_visualizer import VanishingPointVisualizer
+from datetime import datetime
+import os
 
 
 def overlay_vanishing_point(image, vanishing_points):
@@ -62,22 +59,18 @@ def overlay_vanishing_point(image, vanishing_points):
 
 
 def main(
-    vanishing_point, model_name, guidance_scale, controlnet_conditioning_scale, seed
+    target_image,
+    condition_image,
+    model_name,
+    guidance_scale,
+    controlnet_conditioning_scale,
+    seed,
 ):
-    # download an image
-    # dataset = load_from_disk("/srv/datasets3/HoliCity/dataset_w_vpts")
-    # conditioning_image = dataset[5]["conditioning"]
-
-    vp_visualizer = VanishingPointVisualizer(
-        image_size=(512, 512),
-        angle_step=5,
-    )
-    conditioning_image = vp_visualizer.create_condition_image(vanishing_point)
-    conditioning_image = Image.fromarray(conditioning_image)
     # load control net and stable diffusion v1-5
     controlnet = ControlNetModel.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
+        use_safetensors=True,
     )
     # controlnet = ControlNetModel.from_pretrained(
     #     "/home/okumura/lab/vanishing_point/src/model_out/checkpoint-480000/controlnet",
@@ -87,6 +80,7 @@ def main(
         "stabilityai/stable-diffusion-2-1",
         controlnet=controlnet,
         torch_dtype=torch.float16,
+        use_safetensors=True,
     )
 
     # speed up diffusion process with faster scheduler and memory optimization
@@ -100,6 +94,7 @@ def main(
     base_pipe = StableDiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-2-1",
         torch_dtype=torch.float16,
+        use_safetensors=True,
     )
     base_pipe.scheduler = UniPCMultistepScheduler.from_config(
         base_pipe.scheduler.config
@@ -110,45 +105,71 @@ def main(
     # 通常のStable Diffusionで画像生成
     generator = torch.manual_seed(seed)
     base_images = base_pipe(
-        "modern buildings, high quality, photorealistic",
-        num_inference_steps=50,
+        "buildings on both sides of the road, high quality, photorealistic",
+        num_inference_steps=20,
         generator=generator,
-        num_images_per_prompt=5,
+        num_images_per_prompt=20,
         guidance_scale=guidance_scale,
     ).images
 
     # ControlNetを使用した画像生成
     generator = torch.manual_seed(seed)
     controlnet_images = pipe(
-        "buildings, high quality, photorealistic",
-        num_inference_steps=50,
+        "modern buildings, high quality, photorealistic",
+        image=condition_image,
+        num_inference_steps=20,
         generator=generator,
-        image=conditioning_image,
         num_images_per_prompt=5,
-        guidance_scale=guidance_scale,
+        # guidance_scale=guidance_scale,
         controlnet_conditioning_scale=controlnet_conditioning_scale,
     ).images
-
+    # controlnet_images = pipe(
+    #     "",
+    #     guess_mode=True,
+    #     num_inference_steps=50,
+    #     generator=generator,
+    #     image=condition_image,
+    #     num_images_per_prompt=5,
+    #     guidance_scale=1.0,
+    #     # controlnet_conditioning_scale=controlnet_conditioning_scale,
+    # ).images
     # 画像の保存
-    conditioning_image.save("conditioning_image.png")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = f"{os.path.dirname(__file__)}/output/{timestamp}"
+    condition_image.save(f"{output_dir}/conditioning_image.png")
     for i, image in enumerate(base_images):
-        image.save(f"base_output_{i}.png")
+        image.save(f"{output_dir}/raw_SD/{timestamp}_{i}.png")
     for i, image in enumerate(controlnet_images):
-        image.save(f"controlnet_output_{i}.png")
-
-    # 消失点の線を重ねる
-    for i, image in enumerate(controlnet_images):
-        image_with_lines = overlay_vanishing_point(image, vanishing_point)
-        image_with_lines.save(f"controlnet_output_{i}_with_lines.png")
+        image.save(f"{output_dir}/raw_controlnet/{timestamp}_{i}.png")
+    target_image.save(f"{output_dir}/raw_controlnet/target_{timestamp}.png")
 
 
 if __name__ == "__main__":
-    # model_name = "/home/okumura/lab/vanishing_point/src/model_out_w_additional_canny_mask_10000/checkpoint-80000/controlnet"
-    model_name = "/home/okumura/lab/vanishing_point/src/model_out_w_additional_canny_mask_1000/checkpoint-60000/controlnet"
-    vanishing_point = np.array([[900, 400]])
-    guidance_scale = 7.0
-    controlnet_conditioning_scale = 0.400
-    seed = 1
+    idx = 11
+    model_name = "/home/okumura/lab/vanishing_point/ckpt/model_out_w_vpts_edges_black-bg2/checkpoint-3500/controlnet"
+    dataset_path = "/srv/datasets3/HoliCity/dataset_w_vpts_edges"
+    dataset = load_from_disk(dataset_path)
+    target_image = dataset[idx]["image"]
+    # edgesから条件画像を作成
+    edges = dataset[idx]["edge"]
+    condition_image = np.zeros((512, 512, 3), dtype=np.uint8)
+    if edges:  # エッジが存在する場合
+        for vp_edges in edges:
+            for i in range(0, len(vp_edges), 4):
+                x1, y1 = int(vp_edges[i]), int(vp_edges[i + 1])
+                x2, y2 = int(vp_edges[i + 2]), int(vp_edges[i + 3])
+                cv2.line(
+                    condition_image, (x1, y1), (x2, y2), (255, 255, 255), 1
+                )  # 白線で描画
+    condition_image = Image.fromarray(condition_image)
+    guidance_scale = 7.5
+    controlnet_conditioning_scale = 1.0
+    seed = 4
     main(
-        vanishing_point, model_name, guidance_scale, controlnet_conditioning_scale, seed
+        target_image,
+        condition_image,
+        model_name,
+        guidance_scale,
+        controlnet_conditioning_scale,
+        seed,
     )

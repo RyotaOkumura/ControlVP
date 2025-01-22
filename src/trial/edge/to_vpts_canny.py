@@ -93,7 +93,7 @@ def main(path_img, path_vpts=None, vpts_2d=None):
         vpts_2d = vpts_2d
 
     # 画像とエッジの読み込み
-    image = Image.open(path_img)
+    image = Image.open(path_img).convert("RGB")
     transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -140,9 +140,10 @@ def main(path_img, path_vpts=None, vpts_2d=None):
 
 if __name__ == "__main__":
     path_img = "/srv/datasets3/HoliCity/images/2008-07/8heFyix0weuW7Kzd6A_BLg_LD_030_41_imag.jpg"
+    path_img = "/home/okumura/lab/vanishing_point/for_edge.png"
     path_vpts = "/srv/datasets3/HoliCity/vanishing_points/2008-07/8heFyix0weuW7Kzd6A_BLg_LD_030_41_vpts.npz"
-    vpts_2d = torch.tensor([[[400.0, 300.0]]])
-    gt = main(path_img, path_vpts)
+    vpts_2d = torch.tensor([[[180.0, 160.0]]])
+    gt = main(path_img, path_vpts, vpts_2d)
 
     # # 他の座標でグリッドサーチし、gtを超えるものを抽出する
     # for x in range(-512, 1024, 128):
