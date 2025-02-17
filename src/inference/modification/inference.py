@@ -108,7 +108,7 @@ def main(
         "buildings on both sides of the road, high quality, photorealistic",
         num_inference_steps=20,
         generator=generator,
-        num_images_per_prompt=20,
+        num_images_per_prompt=5,
         guidance_scale=guidance_scale,
     ).images
 
@@ -123,29 +123,42 @@ def main(
         # guidance_scale=guidance_scale,
         controlnet_conditioning_scale=controlnet_conditioning_scale,
     ).images
-    # controlnet_images = pipe(
-    #     "",
-    #     guess_mode=True,
-    #     num_inference_steps=50,
-    #     generator=generator,
-    #     image=condition_image,
-    #     num_images_per_prompt=5,
-    #     guidance_scale=1.0,
-    #     # controlnet_conditioning_scale=controlnet_conditioning_scale,
-    # ).images
-    # 画像の保存
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = f"{os.path.dirname(__file__)}/output/{timestamp}"
-    condition_image.save(f"{output_dir}/conditioning_image.png")
-    for i, image in enumerate(base_images):
-        image.save(f"{output_dir}/raw_SD/{timestamp}_{i}.png")
-    for i, image in enumerate(controlnet_images):
-        image.save(f"{output_dir}/raw_controlnet/{timestamp}_{i}.png")
-    target_image.save(f"{output_dir}/raw_controlnet/target_{timestamp}.png")
+    output_dir = f"{os.path.dirname(__file__)}/output/raw_controlnet"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # グリッド用の画像リストを作成
+    num_images = len(base_images)
+    grid_images = []
+
+    # 1行目: target_imageとcondition_image
+    grid_images.extend([target_image, condition_image])
+
+    # 2行目以降: base_imagesとcontrolnet_images
+    for base_img, controlnet_img in zip(base_images, controlnet_images):
+        grid_images.extend([base_img, controlnet_img])
+
+    # グリッドの作成
+    rows = num_images + 1  # target/conditionの行 + 生成画像の行
+    cols = 2
+    cell_size = 512  # 画像サイズ
+
+    # 空の画像を作成
+    grid = Image.new("RGB", (cell_size * cols, cell_size * rows))
+
+    # グリッドに画像を配置
+    for idx, img in enumerate(grid_images):
+        row = idx // cols
+        col = idx % cols
+        grid.paste(img, (col * cell_size, row * cell_size))
+
+    # グリッド画像を保存
+    grid.save(f"{output_dir}/{timestamp}_comparison.png")
+    print(f"output image saved to {output_dir}/{timestamp}_comparison.png")
 
 
 if __name__ == "__main__":
-    idx = 11
+    idx = 20
     model_name = "/home/okumura/lab/vanishing_point/ckpt/model_out_w_vpts_edges_black-bg2/checkpoint-3500/controlnet"
     dataset_path = "/srv/datasets3/HoliCity/dataset_w_vpts_edges"
     dataset = load_from_disk(dataset_path)
