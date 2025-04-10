@@ -1376,10 +1376,10 @@ def main(args):
                 import sys
 
                 sys.path.append(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 )
                 # from src.additional_loss import AdditionalLossCalculator
-                from src.additional_loss_kornia import AdditionalLossCalculatorKornia
+                from src.train.util.additional_loss_kornia import AdditionalLossCalculatorKornia
                 from src.config import config
 
                 # additional_loss_calculator = AdditionalLossCalculator(
@@ -1418,9 +1418,9 @@ def main(args):
                     noise_scheduler, middle_latents, model_pred_middle, middle_timesteps
                 )
 
-                denoised_latents = additional_loss_calculator.predict_denoised_latent(
-                    noise_scheduler, noisy_latents, model_pred, timesteps
-                )
+                # denoised_latents = additional_loss_calculator.predict_denoised_latent(
+                #     noise_scheduler, noisy_latents, model_pred, timesteps
+                # )
                 generated_images = additional_loss_calculator.predict_original_image(
                     vae, denoised_latents
                 )

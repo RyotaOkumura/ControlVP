@@ -58,19 +58,16 @@ def make_condition_image(condition_npz_path, line_width=1):
     return condition_image
 
 
-def main():
+def main(init_image_path, condition_npz_path, mask_image_path=None):
     """
     Args:
-        controlnet_model_path (str): ControlNetのパス
-        model_name (str): StableDiffusionのパス
-        init_image (PIL.Image): 初期画像
-        condition_image (numpy.ndarray): 条件画像、shape=(512, 512, 3)、dtype=uint8
-        mask_image (numpy.ndarray): マスク画像、shape=(512, 512, 3)、dtype=uint8
-        blur_factor (int, optional): マスクのぼかし係数。デフォルト値は0
+        init_image_path (str): 初期画像のパス
+        condition_npz_path (str): 条件画像のnpzファイルパス
+        mask_image_path (str, optional): マスク画像のパス。Noneの場合は自動生成
     """
     # load models
     controlnet = ControlNetModel.from_pretrained(
-        CONTROLNET_MODEL_PATH,
+        CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX],
         torch_dtype=torch.float16,
     )
     pipeline = StableDiffusionControlNetInpaintPipeline.from_pretrained(
@@ -84,15 +81,21 @@ def main():
     pipeline.enable_xformers_memory_efficient_attention()
 
     # prepare images
-    init_image = Image.open(INIT_IMAGE_PATH)
-    condition_image = make_condition_image(CONDITION_NPZ_PATH)
-    mask_image = make_mask(condition_image, kernel_size=KERNEL_SIZE)
+    init_image = Image.open(init_image_path)
+    condition_image = make_condition_image(condition_npz_path)
+
+    # マスク画像の準備
+    if mask_image_path is None:
+        mask_image = make_mask(condition_image, kernel_size=KERNEL_SIZE)
+    else:
+        mask_image = np.array(Image.open(mask_image_path))
+        kernel = np.ones((KERNEL_SIZE, KERNEL_SIZE), np.uint8)
+        mask_image = cv2.dilate(mask_image, kernel, iterations=1)
+
     blurred_mask = pipeline.mask_processor.blur(
         Image.fromarray(mask_image), blur_factor=BLUR_FACTOR
     )
-    # control_imageを正しい形状に変換（HWC -> CHW）
-    control_image = condition_image.copy()  # numpy.ndarray (H, W, C)
-    control_image = Image.fromarray(control_image)  # PIL.Image に変換
+    control_image = Image.fromarray(condition_image)
 
     images = pipeline(
         prompt=PROMPT,
@@ -105,35 +108,54 @@ def main():
         # guidance_scale=7.5,
         controlnet_conditioning_scale=CONTROLNET_CONDITIONING_SCALE,
     ).images
-    condition_for_overlay = make_condition_image(CONDITION_NPZ_PATH, line_width=2)
+    condition_for_overlay = make_condition_image(condition_npz_path, line_width=2)
     print(pipeline.unet.config.in_channels)
-    # グリッド画像の作成
-    grid_image = create_result_grid(
-        [
-            [init_image, control_image, blurred_mask],
-            images,
-            [
-                Image.fromarray(
-                    np.where(
-                        np.array(condition_for_overlay)[:, :, 0:1] > 128,
-                        np.array(np.array([255, 0, 0])),
-                        np.array(image),
-                    ).astype(np.uint8)
-                )
-                for image in images
-            ],
-        ]  # 1行目  # 2行目
-    )
 
+    # 出力パスの設定
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = f"{os.path.dirname(__file__)}/output/inpainting/{timestamp}_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}.jpg"
-    grid_image.save(output_path)
-    print(f"output image saved to {output_path}")
+    output_dir = ""
+    if "contour_vp_loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
+        output_dir = f"{os.path.dirname(__file__)}/output/inpainting/w_vp_loss"
+    elif "wo_vp-loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
+        output_dir = f"{os.path.dirname(__file__)}/output/inpainting/wo_vp_loss"
+    else:
+        raise ValueError("Invalid controlnet model path")
+    output_path = ""
+    if mask_image_path is None:
+        output_path = f"{output_dir}/{timestamp}_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}.jpg"
+    else:
+        output_path = f"{output_dir}/{timestamp}_w-mask_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}.jpg"
 
+    # グリッド画像の保存
+    if SAVE_GRID_IMAGE:
+        grid_image = create_result_grid(
+            [
+                [init_image, control_image, blurred_mask],
+                images,
+                [
+                    Image.fromarray(
+                        np.where(
+                            np.array(condition_for_overlay)[:, :, 0:1] > 128,
+                            np.array(np.array([255, 0, 0])),
+                            np.array(image),
+                        ).astype(np.uint8)
+                    )
+                    for image in images
+                ],
+            ]  # 1行目  # 2行目
+        )
+
+        grid_image.save(output_path)
+        print(f"output image saved to {output_path}")
+
+    # 各画像の保存
     if SAVE_EACH_IMAGE:
         i = 0
         for image in images:
-            output_path = f"{os.path.dirname(__file__)}/output/inpainting/{timestamp}_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}_image-{i}.jpg"
+            if mask_image_path is None:
+                output_path = f"{output_dir}/{timestamp}_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}_image-{i}.jpg"
+            else:
+                output_path = f"{output_dir}/{timestamp}_w-mask_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}_image-{i}.jpg"
             image.save(output_path)
             print(f"output image saved to {output_path}")
             i += 1
@@ -152,33 +174,48 @@ def make_mask(condition_image, kernel_size=100):
 
 
 if __name__ == "__main__":
-    CONTROLNET_MODEL_PATH = "/home/okumura/lab/vanishing_point/ckpt/model_out_w_vpts_edges_black-bg2/checkpoint-3500/controlnet"
+    IMAGE_PATHS = [
+        {
+            "init": "/home/okumura/lab/vanishing_point/data/data_20250328_192600_imag.jpg",
+            "condition": "/home/okumura/lab/vanishing_point/data/data_20250328_192600_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/vanishing_point/data/data_20250328_192600_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/vanishing_point/data/data_20250324_054933_imag.jpg",
+            "condition": "/home/okumura/lab/vanishing_point/data/data_20250324_054933_edge.npz",
+            "mask": None,
+            # "mask": "/home/okumura/lab/vanishing_point/data/data_20250324_054933_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/vanishing_point/data/data_20250324_061130_imag.jpg",
+            "condition": "/home/okumura/lab/vanishing_point/data/data_20250324_061130_edge.npz",
+            "mask": None,
+            # "mask": "/home/okumura/lab/vanishing_point/data/data_20250324_061130_mask.jpg",
+        },
+    ]
+
+    CONTROLNET_MODEL_PATHS = [
+        "/home/okumura/lab/vanishing_point/ckpt/contour/successful/contour_best_wo_vp-loss/checkpoint-3500/controlnet",
+        "/home/okumura/lab/vanishing_point/ckpt/contour/successful/model_out_contour_vp_loss_w-1000_v-pred/checkpoint-25500/controlnet",
+    ]
+    CONTROLNET_MODEL_IDX = 1
     MODEL_NAME = "stabilityai/stable-diffusion-2-1"
-    # INIT_IMAGE_PATH = (
-    #     "/home/okumura/lab/vanishing_point/data/data_20250130_182025_imag.jpg"
-    # )
-    # # INIT_IMAGE_PATH = "/home/okumura/lab/vanishing_point/src/inference/modification/output/inpainting/20250122_190110_str-0.45_blur-10_kernel-100_image-1.jpg"
-    # CONDITION_NPZ_PATH = (
-    #     "/home/okumura/lab/vanishing_point/data/data_20250130_182025_edge.npz"
-    # )
-    INIT_IMAGE_PATH = (
-        "/home/okumura/lab/vanishing_point/data/data_20250130_212334_imag.jpg"
-    )
-    CONDITION_NPZ_PATH = (
-        "/home/okumura/lab/vanishing_point/data/data_20250130_212334_edge.npz"
-    )
-    # INIT_IMAGE_PATH = (
-    #     "/home/okumura/lab/vanishing_point/data/data_20250130_194727_imag.jpg"
-    # )
-    # CONDITION_NPZ_PATH = (
-    #     "/home/okumura/lab/vanishing_point/data/data_20250130_194727_edge.npz"
-    # )
-    KERNEL_SIZE = 150
+
+    # その他のパラメータ設定
+    # 元々: 30, 20
+    KERNEL_SIZE = 50
+    BLUR_FACTOR = 10
     STRENGTH = 0.5
-    BLUR_FACTOR = 100
     NUM_IMAGES_PER_PROMPT = 10
     PROMPT = "building, high quality, photorealistic"
     SAVE_EACH_IMAGE = True
+    SAVE_GRID_IMAGE = False
     CONTROLNET_CONDITIONING_SCALE = 1.0
-    for i in range(1):
-        main()
+
+    # インデックス0の画像セットで実行
+    image_set_index = 0
+    paths = IMAGE_PATHS[image_set_index]
+
+    for i in range(5):
+        main(paths["init"], paths["condition"], paths["mask"])

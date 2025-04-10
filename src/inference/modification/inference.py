@@ -159,7 +159,7 @@ def main(
 
 if __name__ == "__main__":
     idx = 20
-    model_name = "/home/okumura/lab/vanishing_point/ckpt/model_out_w_vpts_edges_black-bg2/checkpoint-3500/controlnet"
+    model_name = "/home/okumura/lab/vanishing_point/src/train/model_out_contour_vp_loss_w-1000_v-pred/checkpoint-25500/controlnet"
     dataset_path = "/srv/datasets3/HoliCity/dataset_w_vpts_edges"
     dataset = load_from_disk(dataset_path)
     target_image = dataset[idx]["image"]

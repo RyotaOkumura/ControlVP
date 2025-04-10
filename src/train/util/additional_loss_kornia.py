@@ -76,13 +76,17 @@ class AdditionalLossCalculatorKornia:
         alpha_prod_t_current = noise_scheduler.alphas_cumprod[current_timesteps].to(
             noisy_latents.device
         )
-        alpha_prod_t_current = alpha_prod_t_current.reshape(-1, 1, 1, 1)
+        alpha_prod_t_current = alpha_prod_t_current.flatten()
+        while len(alpha_prod_t_current.shape) < len(noisy_latents.shape):
+            alpha_prod_t_current = alpha_prod_t_current.unsqueeze(-1)
 
         if target_timesteps is not None:
             alpha_prod_t_target = noise_scheduler.alphas_cumprod[target_timesteps].to(
                 noisy_latents.device
             )
-            alpha_prod_t_target = alpha_prod_t_target.reshape(-1, 1, 1, 1)
+            alpha_prod_t_target = alpha_prod_t_target.flatten()
+            while len(alpha_prod_t_target.shape) < len(noisy_latents.shape):
+                alpha_prod_t_target = alpha_prod_t_target.unsqueeze(-1)
             alpha_prod_t = alpha_prod_t_current / alpha_prod_t_target
         else:
             alpha_prod_t = alpha_prod_t_current
@@ -95,8 +99,10 @@ class AdditionalLossCalculatorKornia:
             ) / sqrt_alpha_prod_t
 
         elif noise_scheduler.config.prediction_type == "v_prediction":
-            raise ValueError("v_prediction is not supported")
-
+            pred_original_latent = (
+                sqrt_alpha_prod_t * noisy_latents
+                - sqrt_one_minus_alpha_prod_t * model_pred
+            )
         else:
             raise ValueError(
                 f"Unknown prediction type {noise_scheduler.config.prediction_type}"
