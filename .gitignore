@@ -180,4 +180,4 @@ ckpt/
 
 src/trial/images/
 
-**/output/
+**/output**/
