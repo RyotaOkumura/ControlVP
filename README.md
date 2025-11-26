@@ -1,4 +1,21 @@
 # vanishing_point
+
+## Installation
+
+### Prerequisites
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) package manager
+
+### Install dependencies
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+```
+
 ### memo
 - python 3.11.8
 - pip 24.0
