@@ -104,6 +104,7 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
         control_image=control_image,  # PIL.Image として渡す
         strength=STRENGTH,
         num_images_per_prompt=NUM_IMAGES_PER_PROMPT,
+        controlnet_guidance_scale=CONTROLNET_GUIDANCE_SCALE,
         # num_inference_steps=20,
         # guidance_scale=7.5,
         controlnet_conditioning_scale=CONTROLNET_CONDITIONING_SCALE,
@@ -114,10 +115,13 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
     # 出力パスの設定
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = ""
-    if "contour_vp_loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
+    if "w_tog_loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
+        output_dir = f"{os.path.dirname(__file__)}/output/inpainting/w_tog_loss"
+    elif "contour_vp_loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
         output_dir = f"{os.path.dirname(__file__)}/output/inpainting/w_vp_loss"
     elif "wo_vp-loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
         output_dir = f"{os.path.dirname(__file__)}/output/inpainting/wo_vp_loss"
+
     else:
         raise ValueError("Invalid controlnet model path")
     output_path = ""
@@ -176,46 +180,104 @@ def make_mask(condition_image, kernel_size=100):
 if __name__ == "__main__":
     IMAGE_PATHS = [
         {
-            "init": "/home/okumura/lab/vanishing_point/data/data_20250328_192600_imag.jpg",
-            "condition": "/home/okumura/lab/vanishing_point/data/data_20250328_192600_edge.npz",
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250328_192600_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250328_192600_edge.npz",
             # "mask": None,
-            "mask": "/home/okumura/lab/vanishing_point/data/data_20250328_192600_mask.jpg",
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250328_192600_mask.jpg",
         },
         {
-            "init": "/home/okumura/lab/vanishing_point/data/data_20250324_054933_imag.jpg",
-            "condition": "/home/okumura/lab/vanishing_point/data/data_20250324_054933_edge.npz",
-            "mask": None,
-            # "mask": "/home/okumura/lab/vanishing_point/data/data_20250324_054933_mask.jpg",
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_054933_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_054933_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_054933_mask.jpg",
         },
         {
-            "init": "/home/okumura/lab/vanishing_point/data/data_20250324_061130_imag.jpg",
-            "condition": "/home/okumura/lab/vanishing_point/data/data_20250324_061130_edge.npz",
-            "mask": None,
-            # "mask": "/home/okumura/lab/vanishing_point/data/data_20250324_061130_mask.jpg",
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_061130_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_061130_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_061130_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250521_043108_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250521_043108_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250521_043108_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_194041_277_312_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_194041_277_312_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_194041_277_312_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_205525_296_235_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_205525_296_235_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_205525_296_235_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_232135_164_237_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_232135_164_237_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_232135_164_237_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_235821_242_247_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_235821_242_247_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_235821_242_247_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250524_001444_319_266_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250524_001444_319_266_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250524_001444_319_266_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250503_162346_256_232_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250503_162346_256_232_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250503_162346_256_232_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250504_134743_242_390_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250504_134743_242_390_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250504_134743_242_390_mask.jpg",
+        },
+        {
+            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250719_122634_430_-1_imag.jpg",
+            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250719_122634_430_-1_edge.npz",
+            # "mask": None,
+            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250719_122634_430_-1_mask.jpg",
         },
     ]
 
     CONTROLNET_MODEL_PATHS = [
         "/home/okumura/lab/vanishing_point/ckpt/contour/successful/contour_best_wo_vp-loss/checkpoint-3500/controlnet",
-        "/home/okumura/lab/vanishing_point/ckpt/contour/successful/model_out_contour_vp_loss_w-1000_v-pred/checkpoint-25500/controlnet",
+        "/home/okumura/lab/grad_thesis_vp/vanishing_point/ckpt/contour/successful/model_out_contour_vp_loss_w-1000_v-pred/checkpoint-25500/controlnet",
+        "/home/okumura/lab/grad_thesis_vp/vanishing_point/src/train/model_out_contour_vp_loss_w_tog_loss/checkpoint-12500/controlnet",
+        "/home/okumura/lab/grad_thesis_vp/vanishing_point/src/train/model_out_contour_vp_loss_sd2-base/checkpoint-25000/controlnet",
     ]
     CONTROLNET_MODEL_IDX = 1
-    MODEL_NAME = "stabilityai/stable-diffusion-2-1"
+    MODEL_NAME = "stabilityai/stable-diffusion-2-inpainting"
 
     # その他のパラメータ設定
     # 元々: 30, 20
-    KERNEL_SIZE = 50
-    BLUR_FACTOR = 10
-    STRENGTH = 0.5
+    KERNEL_SIZE = 30
+    BLUR_FACTOR = 20
+    STRENGTH = 1.0
     NUM_IMAGES_PER_PROMPT = 10
     PROMPT = "building, high quality, photorealistic"
     SAVE_EACH_IMAGE = True
-    SAVE_GRID_IMAGE = False
+    SAVE_GRID_IMAGE = True
     CONTROLNET_CONDITIONING_SCALE = 1.0
+    CONTROLNET_GUIDANCE_SCALE = 3.0
 
     # インデックス0の画像セットで実行
-    image_set_index = 0
-    paths = IMAGE_PATHS[image_set_index]
+    image_set_indexes = [11]
+    paths = [IMAGE_PATHS[image_set_index] for image_set_index in image_set_indexes]
 
-    for i in range(5):
-        main(paths["init"], paths["condition"], paths["mask"])
+    for i in range(len(image_set_indexes)):
+        for _ in range(1):
+            main(paths[i]["init"], paths[i]["condition"], paths[i]["mask"])

@@ -47,7 +47,9 @@ def main(
 
 
 if __name__ == "__main__":
-    prompt = "buildings on both sides of the road, high quality, photorealistic"
+    # prompt = "buildings on both sides of the road, high quality, photorealistic"
+    # prompt = "Row of buildings alongside a straight road, high quality, photorealistic"
+    prompt = "Room, high quality, photorealistic"
     for i in range(10):
         main(
             prompt,

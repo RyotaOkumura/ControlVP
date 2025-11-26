@@ -122,4 +122,5 @@ if __name__ == "__main__":
     num_images_per_prompt = 30
     # prompt = "lots of houses and apartments and buildings, city, seen from ground, high quality, photorealistic"
     prompt = "apartments, houses, buildings, road, seen from ground, high quality, photorealistic"
+
     main(guidance_scale, seed, num_images_per_prompt, prompt, save_all=True)

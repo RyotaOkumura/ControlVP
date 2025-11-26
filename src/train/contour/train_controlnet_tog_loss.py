@@ -851,16 +851,18 @@ def collate_fn(examples):
             print("no edges")
             continue
 
-        # ランダムに1つのグループを選択する
-        selected_index = random.randint(0, len(edges_list) - 1)
-        vp_edges = edges_list[selected_index]
-
-        for i in range(0, len(vp_edges), 4):
-            x1, y1 = int(vp_edges[i]), int(vp_edges[i + 1])
-            x2, y2 = int(vp_edges[i + 2]), int(vp_edges[i + 3])
-            cv2.line(
-                condition_image, (x1, y1), (x2, y2), (255, 255, 255), 1
-            )  # 白線で描画
+        # 最低1つは選択されるようにする
+        selected = [False] * len(edges_list)
+        while not any(selected):  # 1つも選択されていない場合は再試行
+            for i, vp_edges in enumerate(edges_list):
+                if random.random() < 0.9:
+                    selected[i] = True
+                    for i in range(0, len(vp_edges), 4):
+                        x1, y1 = int(vp_edges[i]), int(vp_edges[i + 1])
+                        x2, y2 = int(vp_edges[i + 2]), int(vp_edges[i + 3])
+                        cv2.line(
+                            condition_image, (x1, y1), (x2, y2), (255, 255, 255), 1
+                        )  # 白線で描画
 
         # PIL Imageに変換してからtensor化
         condition_pil = Image.fromarray(condition_image)
@@ -876,7 +878,7 @@ def collate_fn(examples):
     input_ids = torch.stack([example["input_ids"] for example in examples])
     # 消失点の座標を3つに統一
     vanishing_points = []
-    dummy_point = [-1, -1]  # ダミーの消失点座標
+    dummy_point = [0.0, 0.0]  # ダミーの消失点座標
 
     for example in examples:
         vp = example["vanishing_points"]
@@ -985,6 +987,7 @@ def main(args):
     noise_scheduler = DDPMScheduler.from_pretrained(
         args.pretrained_model_name_or_path,
         subfolder="scheduler",
+        # prediction_type="epsilon",
     )
     text_encoder = text_encoder_cls.from_pretrained(
         args.pretrained_model_name_or_path,
@@ -1331,6 +1334,7 @@ def main(args):
                 from src.train.util.additional_loss_kornia import (
                     AdditionalLossCalculatorKornia,
                 )
+                from src.train.losses.perspective import perspective_loss
                 from src.config import config
 
                 additional_loss_calculator = AdditionalLossCalculatorKornia()
@@ -1375,11 +1379,14 @@ def main(args):
                     # print(f"timesteps: {timesteps}")
                     # print(f"config:{noise_scheduler.config.num_train_timesteps}")
                 timesteps_mask = (timesteps <= 500).float()
-                additional_loss = additional_loss_calculator.calc_additional_loss(
-                    batch["pixel_values"],
-                    generated_images,
-                    batch["vanishing_points"],
-                    timesteps_mask,
+                # additional_loss = additional_loss_calculator.calc_additional_loss(
+                #     batch["pixel_values"],
+                #     generated_images,
+                #     batch["vanishing_points"],
+                #     timesteps_mask,
+                # )
+                additional_loss = perspective_loss(
+                    generated_images, batch["pixel_values"], batch["vanishing_points"]
                 )
                 # print(f"original loss: {loss}")
                 weighted_additional_loss = (
