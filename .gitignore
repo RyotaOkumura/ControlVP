@@ -181,3 +181,5 @@ ckpt/
 src/trial/images/
 
 **/output**/
+
+**/model_out**/
