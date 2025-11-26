@@ -1,9 +1,10 @@
-# vanishing_point
+# ControlVP
 
 ## Installation
 
 ### Prerequisites
 - Python 3.11+
+- CUDA 12.1
 - [uv](https://docs.astral.sh/uv/) package manager
 
 ### Install dependencies
@@ -15,7 +16,21 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Install dependencies
 uv sync
 ```
+## Training the model
+### Download the training dataset
+Install the HoliCity dataset from the [homepage](https://holicity.io/)
 
+### Add building outlines to the dataset 
+```bash
+# some command here
+```
+
+### Run the training script
+```bash
+# some command here
+```
+
+<!-- 
 ### memo
 - python 3.11.8
 - pip 24.0
@@ -34,4 +49,4 @@ import gdown
 
 url = 'https://drive.google.com/uc?id=12L4oy5Y8Dk5ESuMix-KdDQgUGaEO4oUE'
 out_path = 'SD2_Finetune.ckpt'
-gdown.download(url, out_path, quiet=False)
+gdown.download(url, out_path, quiet=False) -->
