@@ -18,7 +18,14 @@ uv sync
 ```
 ## Training the model
 ### Download the training dataset
-Install the HoliCity dataset from the [homepage](https://holicity.io/)
+Install the HoliCity dataset from the [homepage](https://holicity.io/).
+The parent path is arbitrary, but the dataset should be organized as follows:
+```
+|--images
+|--normal_map
+|--planes
+|--vanishing_points
+```
 
 ### Add building outlines to the dataset 
 ```bash
