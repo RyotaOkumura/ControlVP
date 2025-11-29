@@ -9,7 +9,7 @@ import os
 def main(
     prompt,
 ):
-    # Kandinsky パイプラインを設定
+    # Setup Kandinsky pipeline
     pipe = AutoPipelineForText2Image.from_pretrained(
         "kandinsky-community/kandinsky-3",
         variant="fp16",
@@ -17,7 +17,7 @@ def main(
     )
     pipe.enable_model_cpu_offload()
 
-    # Kandinskyで画像生成
+    # Generate images with Kandinsky
     images = []
     for _ in range(10):
         image = pipe(
@@ -35,7 +35,7 @@ def main(
     output_dir = f"{os.path.dirname(__file__)}/output"
     os.makedirs(output_dir, exist_ok=True)
 
-    # 各画像を個別に保存
+    # Save each image
     for idx, img in enumerate(images):
         output_path = f"{output_dir}/{timestamp}_{idx}.png"
         img.save(output_path)
@@ -43,17 +43,9 @@ def main(
 
 
 if __name__ == "__main__":
-    # prompt = "buildings on both sides of the road, high quality, photorealistic"
-    # prompt = "Row of buildings alongside a straight road, high quality, photorealistic"
-    prompt = "Buildings along one side of a straight road, high quality, photorealistic"
-    prompt = (
-        "Straight road in front, buildings along the road, high quality, photorealistic"
-    )
-    prompt = "Side view of a street, road running horizontally from left to right, buildings on the far side only, high quality, photorealistic"
-    prompt = "Side view of a street, road running horizontally from left to right, high quality, photorealistic"
-    prompt = "Sidewalk in foreground, asphalt road in middle ground running left to right, row of shops and buildings in background, eye level view, high quality, photorealistic"
-    prompt = "road"
-    prompt = "row of buildings, high quality, photorealistic"
+    prompt = "Buildings on both sides of the road, high quality, photorealistic"
+    prompt = "Row of buildings alongside a straight road, high quality, photorealistic"
+    prompt = "Row of buildings, high quality, photorealistic"
     # prompt = "Room, high quality, photorealistic"
     for i in range(1):
         main(

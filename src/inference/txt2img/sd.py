@@ -17,7 +17,7 @@ import os
 def main(
     prompt,
 ):
-    # 通常のStable Diffusion パイプラインを設定
+    # Setup Stable Diffusion pipeline
     base_pipe = StableDiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-2-1",
         torch_dtype=torch.float16,
@@ -29,7 +29,7 @@ def main(
     base_pipe.enable_xformers_memory_efficient_attention()
     base_pipe.enable_model_cpu_offload()
 
-    # 通常のStable Diffusionで画像生成
+    # Generate images with Stable Diffusion
     base_images = base_pipe(
         prompt,
         num_images_per_prompt=10,
@@ -39,7 +39,7 @@ def main(
     output_dir = f"{os.path.dirname(__file__)}/output"
     os.makedirs(output_dir, exist_ok=True)
 
-    # 各画像を個別に保存
+    # Save each image
     for idx, img in enumerate(base_images):
         output_path = f"{output_dir}/{timestamp}_{idx}.png"
         img.save(output_path)
@@ -47,9 +47,10 @@ def main(
 
 
 if __name__ == "__main__":
-    # prompt = "buildings on both sides of the road, high quality, photorealistic"
-    # prompt = "Row of buildings alongside a straight road, high quality, photorealistic"
-    prompt = "Room, high quality, photorealistic"
+    prompt = "Buildings on both sides of the road, high quality, photorealistic"
+    prompt = "Row of buildings alongside a straight road, high quality, photorealistic"
+    prompt = "Row of buildings, high quality, photorealistic"
+    # prompt = "Room, high quality, photorealistic"
     for i in range(10):
         main(
             prompt,

@@ -9,15 +9,15 @@ import random
 def main(
     prompts,
 ):
-    # PixArt パイプラインを設定
+    # Setup PixArt pipeline
     pipe = PixArtAlphaPipeline.from_pretrained(
         "PixArt-alpha/PixArt-XL-2-1024-MS",
         torch_dtype=torch.float16,
     )
     pipe.enable_model_cpu_offload()
 
-    # PixArtで画像生成
-    # ランダムに1つのプロンプトを選んで10枚生成
+    # Generate images with PixArt
+    # Randomly select one prompt and generate 10 images
     selected_prompt = random.choice(prompts)
 
     images = pipe(
@@ -34,7 +34,7 @@ def main(
     output_dir = f"{os.path.dirname(__file__)}/output"
     os.makedirs(output_dir, exist_ok=True)
 
-    # 各画像を個別に保存
+    # Save each image
     prefix = 7
     for idx, img in enumerate(images):
         output_path = f"{output_dir}/{timestamp}_{prefix}_{idx}.png"
@@ -43,13 +43,10 @@ def main(
 
 
 if __name__ == "__main__":
-
-    # prompt = "buildings on both sides of the road, high quality, photorealistic"
-    # prompt = "Row of buildings alongside a straight road, high quality, photorealistic"
-
     prompts = [
-        "Buildings along one side of a straight road, high quality, photorealistic",
-        "row of buildings, high quality, photorealistic",
+        "Buildings on both sides of the road, high quality, photorealistic"
+        "Row of buildings alongside a straight road, high quality, photorealistic",
+        "Row of buildings, high quality, photorealistic",
     ]
 
     for i in range(200):
