@@ -1,4 +1,12 @@
-# ControlVP
+# ControlVP : Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points
+
+A user-guided framework for correcting vanishing point (VP) inconsistencies in AI-generated images using building contours as conditions.
+
+[[Paper](https://github.com/RyotaOkumura/ControlVP)]
+
+![teaser](assets/readme/teaser.png)
+
+https://github.com/user-attachments/assets/xxxxx (TODO: Upload demo_video.mp4 to GitHub)
 
 ## Installation
 
@@ -29,31 +37,10 @@ The parent path is arbitrary, but the dataset should be organized as follows:
 
 ### Add building outlines to the dataset 
 ```bash
-# some command here
+./src/script/create_training_dataset.sh
 ```
 
 ### Run the training script
 ```bash
-# some command here
+./src/script/train_controlnet_vp_loss.sh
 ```
-
-<!-- 
-### memo
-- python 3.11.8
-- pip 24.0
-- pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-- git clone https://github.com/huggingface/diffusers
-- https://huggingface.co/docs/diffusers/training/controlnet を参考にセットアップ
-
-
-
-12L4oy5Y8Dk5ESuMix-KdDQgUGaEO4oUE
-
-12L4oy5Y8Dk5ESuMix-KdDQgUGaEO4oUE
-SD2_Finetune.ckpt
-
-import gdown
-
-url = 'https://drive.google.com/uc?id=12L4oy5Y8Dk5ESuMix-KdDQgUGaEO4oUE'
-out_path = 'SD2_Finetune.ckpt'
-gdown.download(url, out_path, quiet=False) -->

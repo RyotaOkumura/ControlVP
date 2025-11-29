@@ -27,13 +27,13 @@ def handle(prefix):
         planes_path = f"{prefix.replace('/images/', '/planes/')}_plan.png"
         output_path = f"{prefix.replace('/images/', '/vpts-w-edges/')}_vpts-w-edges.npz"
 
-        # vpts と planes の読み込み
+        # Load vpts and planes
         with np.load(vpts_path) as f:
             vpts = f["vpts"]
             confidence = f["confidence"]
         buf_plane = cv2.imread(planes_path, -1)
 
-        # エッジ候補の抽出
+        # Extract edge candidates
         lines_candidates = []
         for i in range(np.max(buf_plane)):
             mask_2d = (buf_plane == i + 1).astype(np.float32)
@@ -45,8 +45,8 @@ def handle(prefix):
                     pt2 = np.array(simplified_contour[j + 1][::-1], dtype=np.float32)
                     lines_candidates.append((pt1, pt2))
 
-        # 各消失点に対応するエッジの検出
-        edges = [[] for _ in range(len(vpts))]  # 一時的にリストとして収集
+        # Detect edges corresponding to each vanishing point
+        edges = [[] for _ in range(len(vpts))]
         for idx, vpt in enumerate(vpts):
             vp_coord = np.array(vpt3d_to_2d(vpt))
             for pt1, pt2 in lines_candidates:
@@ -61,12 +61,12 @@ def handle(prefix):
                 if theta < 5 * np.pi / 180:
                     edges[idx].append([pt1, pt2])
 
-        # リストからNumPy配列に変換
+        # Convert from list to NumPy array
         edges_array = np.array(
             [np.array(group, dtype=np.float32) for group in edges], dtype=object
         )
 
-        # 結果の保存
+        # Save results
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         np.savez(output_path, vpts=vpts, confidence=confidence, edges=edges_array)
     except Exception as e:

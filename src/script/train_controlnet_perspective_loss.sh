@@ -1,5 +1,5 @@
 accelerate launch \
- contour/train_controlnet_tog_loss.py \
+ train/train_controlnet_perspective_loss.py \
  --pretrained_model_name_or_path="stabilityai/stable-diffusion-2-1" \
  --output_dir="model_out_contour_vp_loss_w_tog_loss" \
  --dataset_name=/srv/datasets3/HoliCity/dataset_w_vpts_edges \

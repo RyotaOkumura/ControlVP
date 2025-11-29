@@ -851,18 +851,16 @@ def collate_fn(examples):
             print("no edges")
             continue
 
-        # 最低1つは選択されるようにする
-        selected = [False] * len(edges_list)
-        while not any(selected):  # 1つも選択されていない場合は再試行
-            for i, vp_edges in enumerate(edges_list):
-                if random.random() < 0.9:
-                    selected[i] = True
-                    for i in range(0, len(vp_edges), 4):
-                        x1, y1 = int(vp_edges[i]), int(vp_edges[i + 1])
-                        x2, y2 = int(vp_edges[i + 2]), int(vp_edges[i + 3])
-                        cv2.line(
-                            condition_image, (x1, y1), (x2, y2), (255, 255, 255), 1
-                        )  # 白線で描画
+        # ランダムに1つのグループを選択する
+        selected_index = random.randint(0, len(edges_list) - 1)
+        vp_edges = edges_list[selected_index]
+
+        for i in range(0, len(vp_edges), 4):
+            x1, y1 = int(vp_edges[i]), int(vp_edges[i + 1])
+            x2, y2 = int(vp_edges[i + 2]), int(vp_edges[i + 3])
+            cv2.line(
+                condition_image, (x1, y1), (x2, y2), (255, 255, 255), 1
+            )  # 白線で描画
 
         # PIL Imageに変換してからtensor化
         condition_pil = Image.fromarray(condition_image)
@@ -1325,12 +1323,9 @@ def main(args):
 
                 sys.path.append(
                     os.path.dirname(
-                        os.path.dirname(
-                            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        )
+                        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     )
                 )
-                # from src.additional_loss import AdditionalLossCalculator
                 from src.train.util.additional_loss_kornia import (
                     AdditionalLossCalculatorKornia,
                 )

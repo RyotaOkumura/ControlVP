@@ -1,7 +1,10 @@
 dataset:
-  image_base_dir: "/srv/datasets3/HoliCity/images"
-  vpts_base_dir: "/srv/datasets3/HoliCity/vpts-w-edges/"
-  dataset_dir: "/srv/datasets3/HoliCity/dataset_w_vpts_edges/"
+  # Path to your downloaded HoliCity images (Change to match your environment)
+  image_base_dir: "/srv/datasets3/HoliCity/images" 
+  # Path to the directory where you want to save the edge information (Change to match your environment)
+  vpts_base_dir: "/srv/datasets3/HoliCity/vpts-w-edges/" 
+  # Path to the directory where you want to save the dataset (Change to match your environment)
+  dataset_dir: "/srv/datasets3/HoliCity/dataset_w_vpts_edges/" 
 
 training:
   threshold:

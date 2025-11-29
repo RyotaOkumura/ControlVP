@@ -8,48 +8,45 @@ import os
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
-
-# import cv2
-
 MIN_SAMPLES = 125
 
 
 def create_dataset_from_images(image_base_dir, vpts_base_dir):
     """
-    画像フォルダとvanishing pointsフォルダからデータセットを作成する
+    Create a dataset from image folder and vanishing points folder
 
     Args:
-        image_base_dir (str): 画像が含まれるベースディレクトリ
-        vpts_base_dir (str): 消失点データが含まれるベースディレクトリ
+        image_base_dir (str): Base directory containing images
+        vpts_base_dir (str): Base directory containing vanishing point data
     """
     image_paths = []
     vpts_paths = []
-    # サブディレクトリを再帰的に探索
+    # Recursively search subdirectories
     for root, _, files in os.walk(image_base_dir):
         for file in files:
             if file.endswith(("jpg", "jpeg", "png")):
-                # 画像パスを取得
+                # Get image path
                 img_path = os.path.join(root, file)
 
-                # 対応する消失点ファイルのパスを構築
+                # Build path for corresponding vanishing point file
                 relative_path = os.path.relpath(root, image_base_dir)
                 vpts_file = file.replace(
                     "_imag.jpg", "_vpts-w-edges.npz"
-                )  # ファイル名のパターンを変換
+                )
                 vpts_path = os.path.join(vpts_base_dir, relative_path, vpts_file)
 
-                # 消失点ファイルが存在する場合のみデータセットに追加
+                # Add to dataset only if vanishing point file exists
                 if os.path.exists(vpts_path):
                     image_paths.append(img_path)
                     vpts_paths.append(vpts_path)
                     print(img_path)
 
-    # 画像とconditioningを読み込む
+    # Load images and conditioning
     images = [Image.open(path) for path in image_paths]
     captions = [""] * len(images)
     vanishing_points = [return_valid_vpts(path) for path in vpts_paths]
 
-    # エッジデータを読み込む
+    # Load edge data
     edges_data = []
     for vpts_path in vpts_paths:
         vpts_data = np.load(vpts_path, allow_pickle=True)
@@ -59,20 +56,18 @@ def create_dataset_from_images(image_base_dir, vpts_base_dir):
         valid_indices = [
             i for i in range(min(3, len(vpts_3d))) if vpts_confidences[i] > MIN_SAMPLES
         ]
-        # エッジデータをより単純な形式に変換
+        # Convert edge data to a simpler format
         valid_edges = []
         for idx in valid_indices:
-            # 各エッジグループを単純な座標のリストに変換
             edge_group = edges_array[idx]
             edge_coords = []
             for edge in edge_group:
-                # 各エッジの始点と終点の座標をフラットなリストとして保存
                 edge_coords.extend(
                     [
                         float(edge[0][0]),
-                        float(edge[0][1]),  # 始点のx, y
+                        float(edge[0][1]),  # start x, y
                         float(edge[1][0]),
-                        float(edge[1][1]),  # 終点のx, y
+                        float(edge[1][1]),  # end x, y
                     ]
                 )
             valid_edges.append(edge_coords)
@@ -92,7 +87,7 @@ def create_dataset_from_images(image_base_dir, vpts_base_dir):
 
 def return_valid_vpts(vpts_path):
     """
-    消失点データから条件画像を作成する
+    Create conditioning image from vanishing point data
     """
     vpts_data = np.load(vpts_path)
     vpts_3d = vpts_data["vpts"]
@@ -115,42 +110,6 @@ def return_valid_vpts(vpts_path):
     valid_vpts = valid_vpts[:3]
 
     return valid_vpts
-
-
-# def make_conditioning_image(vpts_path):
-#     """
-#     消失点データから条件画像を作成する。各消失点に対して別々の条件画像を返す。
-#     """
-#     valid_vpts = return_valid_vpts(vpts_path)
-#     # 消失点がない場合は白画像を返す
-#     if not valid_vpts:
-#         white_image = Image.new("RGB", (512, 512), "white")
-#         return [white_image]  # リストとして返す
-
-#     # npzファイルからエッジデータを読み込む
-#     vpts_data = np.load(vpts_path)
-#     edges_array = vpts_data["edges"]
-#     vpts_3d = vpts_data["vpts"]
-#     vpts_confidences = vpts_data["confidence"]
-
-#     # 有効な消失点のインデックスを取得
-#     valid_indices = [
-#         i for i in range(min(3, len(vpts_3d))) if vpts_confidences[i] > MIN_SAMPLES
-#     ]
-
-#     # 各消失点に対して別々の条件画像を作成
-#     condition_images = []
-#     for vpt_idx in valid_indices:
-#         condition_image = np.zeros((512, 512, 3), dtype=np.uint8)
-#         condition_image.fill(255)  # 白背景
-#         edges = edges_array[vpt_idx]
-#         for edge in edges:
-#             pt1 = tuple(map(int, edge[0]))
-#             pt2 = tuple(map(int, edge[1]))
-#             cv2.line(condition_image, pt1, pt2, (0, 0, 0), 1)  # 黒線で描画
-#         condition_images.append(Image.fromarray(condition_image))
-
-#     return condition_images
 
 
 if __name__ == "__main__":

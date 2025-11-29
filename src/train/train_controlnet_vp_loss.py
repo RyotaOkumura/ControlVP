@@ -851,18 +851,16 @@ def collate_fn(examples):
             print("no edges")
             continue
 
-        # 最低1つは選択されるようにする
-        selected = [False] * len(edges_list)
-        while not any(selected):  # 1つも選択されていない場合は再試行
-            for i, vp_edges in enumerate(edges_list):
-                if random.random() < 0.9:
-                    selected[i] = True
-                    for i in range(0, len(vp_edges), 4):
-                        x1, y1 = int(vp_edges[i]), int(vp_edges[i + 1])
-                        x2, y2 = int(vp_edges[i + 2]), int(vp_edges[i + 3])
-                        cv2.line(
-                            condition_image, (x1, y1), (x2, y2), (255, 255, 255), 1
-                        )  # 白線で描画
+        # ランダムに1つのグループを選択する
+        selected_index = random.randint(0, len(edges_list) - 1)
+        vp_edges = edges_list[selected_index]
+
+        for i in range(0, len(vp_edges), 4):
+            x1, y1 = int(vp_edges[i]), int(vp_edges[i + 1])
+            x2, y2 = int(vp_edges[i + 2]), int(vp_edges[i + 3])
+            cv2.line(
+                condition_image, (x1, y1), (x2, y2), (255, 255, 255), 1
+            )  # 白線で描画
 
         # PIL Imageに変換してからtensor化
         condition_pil = Image.fromarray(condition_image)
@@ -987,7 +985,6 @@ def main(args):
     noise_scheduler = DDPMScheduler.from_pretrained(
         args.pretrained_model_name_or_path,
         subfolder="scheduler",
-        # prediction_type="epsilon",
     )
     text_encoder = text_encoder_cls.from_pretrained(
         args.pretrained_model_name_or_path,
@@ -1320,76 +1317,75 @@ def main(args):
                     )
                 loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
-                # # additional loss calculation
-                # import sys
+                # additional loss calculation
+                import sys
 
-                # sys.path.append(
-                #     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                # )
-                # # from src.additional_loss import AdditionalLossCalculator
-                # from src.additional_loss_kornia import AdditionalLossCalculatorKornia
-                # from src.config import config
+                sys.path.append(
+                    os.path.dirname(
+                        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    )
+                )
+                from src.train.util.additional_loss_kornia import (
+                    AdditionalLossCalculatorKornia,
+                )
+                from src.config import config
 
-                # # additional_loss_calculator = AdditionalLossCalculator(
-                # #     config["training"]["threshold"]["distance_from_vanishing_point"]
-                # # )
-                # additional_loss_calculator = AdditionalLossCalculatorKornia()
-                # middle_timesteps = (timesteps // 2).to(timesteps.device)
-                # middle_latents = additional_loss_calculator.predict_denoised_latent(
-                #     noise_scheduler,
-                #     noisy_latents,
-                #     model_pred,
-                #     timesteps,
-                #     middle_timesteps,
-                # )
-                # down_block_res_samples_middle, mid_block_res_sample_middle = controlnet(
-                #     middle_latents,
-                #     middle_timesteps,
-                #     encoder_hidden_states=encoder_hidden_states,
-                #     controlnet_cond=controlnet_image,
-                #     return_dict=False,
-                # )
-                # model_pred_middle = unet(
-                #     middle_latents,
-                #     middle_timesteps,
-                #     encoder_hidden_states=encoder_hidden_states,
-                #     down_block_additional_residuals=[
-                #         sample.to(dtype=weight_dtype)
-                #         for sample in down_block_res_samples_middle
-                #     ],
-                #     mid_block_additional_residual=mid_block_res_sample_middle.to(
-                #         dtype=weight_dtype
-                #     ),
-                #     return_dict=False,
-                # )[0]
-                # denoised_latents = additional_loss_calculator.predict_denoised_latent(
-                #     noise_scheduler, middle_latents, model_pred_middle, middle_timesteps
-                # )
+                additional_loss_calculator = AdditionalLossCalculatorKornia()
+                middle_timesteps = (timesteps // 2).to(timesteps.device)
+                middle_latents = additional_loss_calculator.predict_denoised_latent(
+                    noise_scheduler,
+                    noisy_latents,
+                    model_pred,
+                    timesteps,
+                    middle_timesteps,
+                )
+                down_block_res_samples_middle, mid_block_res_sample_middle = controlnet(
+                    middle_latents,
+                    middle_timesteps,
+                    encoder_hidden_states=encoder_hidden_states,
+                    controlnet_cond=controlnet_image,
+                    return_dict=False,
+                )
+                model_pred_middle = unet(
+                    middle_latents,
+                    middle_timesteps,
+                    encoder_hidden_states=encoder_hidden_states,
+                    down_block_additional_residuals=[
+                        sample.to(dtype=weight_dtype)
+                        for sample in down_block_res_samples_middle
+                    ],
+                    mid_block_additional_residual=mid_block_res_sample_middle.to(
+                        dtype=weight_dtype
+                    ),
+                    return_dict=False,
+                )[0]
+                denoised_latents = additional_loss_calculator.predict_denoised_latent(
+                    noise_scheduler, middle_latents, model_pred_middle, middle_timesteps
+                )
+                generated_images = additional_loss_calculator.predict_original_image(
+                    vae, denoised_latents
+                )
+                if step % 5000 == 0:
+                    additional_loss_calculator.save_images(
+                        generated_images, f"step_{step}"
+                    )
+                    # print(f"timesteps: {timesteps}")
+                    # print(f"config:{noise_scheduler.config.num_train_timesteps}")
+                timesteps_mask = (timesteps <= 500).float()
+                additional_loss = additional_loss_calculator.calc_additional_loss(
+                    batch["pixel_values"],
+                    generated_images,
+                    batch["vanishing_points"],
+                    timesteps_mask,
+                )
+                # print(f"original loss: {loss}")
+                weighted_additional_loss = (
+                    config["training"]["additional_loss_weight"] * additional_loss
+                )
+                loss += weighted_additional_loss
+                # print(f"additional loss: {additional_loss}")
+                # print(f"overall loss: {loss}")
 
-                # denoised_latents = additional_loss_calculator.predict_denoised_latent(
-                #     noise_scheduler, noisy_latents, model_pred, timesteps
-                # )
-                # generated_images = additional_loss_calculator.predict_original_image(
-                #     vae, denoised_latents
-                # )
-                # if step % 5000 == 0:
-                #     additional_loss_calculator.save_images(
-                #         generated_images, f"step_{step}"
-                #     )
-                #     # print(f"timesteps: {timesteps}")
-                #     # print(f"config:{noise_scheduler.config.num_train_timesteps}")
-                # timesteps_mask = (timesteps <= 500).float()
-                # additional_loss = additional_loss_calculator.calc_additional_loss(
-                #     batch["pixel_values"],
-                #     generated_images,
-                #     batch["vanishing_points"],
-                #     timesteps_mask,
-                # )
-
-                # # print(f"original loss: {loss}")
-                # loss += config["training"]["additional_loss_weight"] * additional_loss
-                # # print(f"additional loss: {additional_loss}")
-                # # print(f"overall loss: {loss}")
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
                     params_to_clip = controlnet.parameters()
@@ -1457,7 +1453,11 @@ def main(args):
                             global_step,
                         )
 
-            logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            logs = {
+                "loss": loss.detach().item(),
+                "lr": lr_scheduler.get_last_lr()[0],
+                "vp_loss": weighted_additional_loss.detach().item(),
+            }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
 
