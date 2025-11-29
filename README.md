@@ -2,11 +2,8 @@
 
 A user-guided framework for correcting vanishing point (VP) inconsistencies in AI-generated images using building contours as conditions.
 
-[[Paper](https://github.com/RyotaOkumura/ControlVP)]
-
 ![teaser](assets/readme/teaser.png)
 
-https://github.com/user-attachments/assets/xxxxx (TODO: Upload demo_video.mp4 to GitHub)
 
 ## Installation
 
