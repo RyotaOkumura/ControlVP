@@ -1,11 +1,16 @@
 import torch
 import numpy as np
-from diffusers import ControlNetModel, StableDiffusionControlNetInpaintPipeline
+from diffusers import ControlNetModel
 from diffusers.utils import make_image_grid
 from PIL import Image
 import cv2
 import os
+import sys
 from datetime import datetime
+
+# Add project root to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from src.pipelines import StableDiffusionControlNetInpaintCFGPipeline
 
 
 def create_result_grid(image_rows, base_size=None):
@@ -70,7 +75,7 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
         CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX],
         torch_dtype=torch.float16,
     )
-    pipeline = StableDiffusionControlNetInpaintPipeline.from_pretrained(
+    pipeline = StableDiffusionControlNetInpaintCFGPipeline.from_pretrained(
         MODEL_NAME,
         controlnet=controlnet,
         torch_dtype=torch.float16,
