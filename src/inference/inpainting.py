@@ -9,7 +9,8 @@ import sys
 from datetime import datetime
 
 # Add project root to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, PROJECT_ROOT)
 from src.pipelines import StableDiffusionControlNetInpaintCFGPipeline
 
 
@@ -72,7 +73,7 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
     """
     # load models
     controlnet = ControlNetModel.from_pretrained(
-        CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX],
+        CONTROLNET_MODEL_PATH,
         torch_dtype=torch.float16,
     )
     pipeline = StableDiffusionControlNetInpaintCFGPipeline.from_pretrained(
@@ -119,16 +120,8 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
 
     # 出力パスの設定
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = ""
-    if "w_tog_loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
-        output_dir = f"{os.path.dirname(__file__)}/output/inpainting/w_tog_loss"
-    elif "contour_vp_loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
-        output_dir = f"{os.path.dirname(__file__)}/output/inpainting/w_vp_loss"
-    elif "wo_vp-loss" in CONTROLNET_MODEL_PATHS[CONTROLNET_MODEL_IDX]:
-        output_dir = f"{os.path.dirname(__file__)}/output/inpainting/wo_vp_loss"
-
-    else:
-        raise ValueError("Invalid controlnet model path")
+    output_dir = f"{os.path.dirname(__file__)}/output"
+    os.makedirs(output_dir, exist_ok=True)
     output_path = ""
     if mask_image_path is None:
         output_path = f"{output_dir}/{timestamp}_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}.jpg"
@@ -258,13 +251,7 @@ if __name__ == "__main__":
         },
     ]
 
-    CONTROLNET_MODEL_PATHS = [
-        "/home/okumura/lab/vanishing_point/ckpt/contour/successful/contour_best_wo_vp-loss/checkpoint-3500/controlnet",
-        "/home/okumura/lab/grad_thesis_vp/vanishing_point/ckpt/contour/successful/model_out_contour_vp_loss_w-1000_v-pred/checkpoint-25500/controlnet",
-        "/home/okumura/lab/grad_thesis_vp/vanishing_point/src/train/model_out_contour_vp_loss_w_tog_loss/checkpoint-12500/controlnet",
-        "/home/okumura/lab/grad_thesis_vp/vanishing_point/src/train/model_out_contour_vp_loss_sd2-base/checkpoint-25000/controlnet",
-    ]
-    CONTROLNET_MODEL_IDX = 1
+    CONTROLNET_MODEL_PATH = os.path.join(PROJECT_ROOT, "ckpts/controlvp_controlnet")
     MODEL_NAME = "stabilityai/stable-diffusion-2-inpainting"
 
     # その他のパラメータ設定
