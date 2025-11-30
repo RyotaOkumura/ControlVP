@@ -15,30 +15,30 @@ from src.pipelines import StableDiffusionControlNetInpaintCFGPipeline
 
 
 def create_result_grid(image_rows, base_size=None):
-    """結果をグリッド形式の画像として作成する
+    """Create result image in grid format
 
     Args:
-        image_rows (list[list[PIL.Image]]): 画像の2次元配列。各行には異なる数の画像を含められる
-        base_size (tuple[int, int], optional): 空白画像のサイズ。Noneの場合は最初の画像のサイズを使用
+        image_rows (list[list[PIL.Image]]): 2D array of images. Each row can contain different number of images
+        base_size (tuple[int, int], optional): Size of blank image. If None, use the size of the first image
 
     Returns:
-        PIL.Image: グリッド形式の結果画像
+        PIL.Image: Result image in grid format
     """
     if not image_rows or not image_rows[0]:
-        raise ValueError("画像配列が空です")
+        raise ValueError("Image array is empty")
 
-    # 基準サイズの決定
+    # Determine the base size
     if base_size is None:
-        # 最初の画像のサイズを使用
+        # Use the size of the first image
         base_size = image_rows[0][0].size
 
-    # 空白の画像を作成
+    # Create blank image
     blank_image = Image.new("RGB", base_size, (255, 255, 255))
 
-    # 最大列数を計算
+    # Calculate the maximum number of columns
     max_cols = max(len(row) for row in image_rows)
 
-    # 各行を最大列数に合わせて空白画像で埋める
+    # Fill each row with blank image to match the maximum number of columns
     padded_rows = []
     for row in image_rows:
         padded_row = row + [blank_image] * (max_cols - len(row))
@@ -53,23 +53,23 @@ def create_result_grid(image_rows, base_size=None):
 
 def make_condition_image(condition_npz_path, line_width=1):
     edges = np.load(condition_npz_path)["edges"]
-    # edgesを二要素ずつ読み込む
+    # Read edges two by two
     condition_image = np.zeros((512, 512, 3), dtype=np.uint8)
     for i in range(0, len(edges), 4):
         x1, y1 = int(edges[i]), int(edges[i + 1])
         x2, y2 = int(edges[i + 2]), int(edges[i + 3])
         cv2.line(
             condition_image, (x1, y1), (x2, y2), (255, 255, 255), line_width
-        )  # 白線で描画
+        ) 
     return condition_image
 
 
 def main(init_image_path, condition_npz_path, mask_image_path=None):
     """
     Args:
-        init_image_path (str): 初期画像のパス
-        condition_npz_path (str): 条件画像のnpzファイルパス
-        mask_image_path (str, optional): マスク画像のパス。Noneの場合は自動生成
+        init_image_path (str): Path to initial image
+        condition_npz_path (str): Path to condition image npz file
+        mask_image_path (str, optional): Path to mask image. If None, generate automatically
     """
     # load models
     controlnet = ControlNetModel.from_pretrained(
@@ -90,7 +90,7 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
     init_image = Image.open(init_image_path)
     condition_image = make_condition_image(condition_npz_path)
 
-    # マスク画像の準備
+    # Prepare mask image
     if mask_image_path is None:
         mask_image = make_mask(condition_image, kernel_size=KERNEL_SIZE)
     else:
@@ -107,7 +107,7 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
         prompt=PROMPT,
         image=init_image,
         mask_image=blurred_mask,
-        control_image=control_image,  # PIL.Image として渡す
+        control_image=control_image,
         strength=STRENGTH,
         num_images_per_prompt=NUM_IMAGES_PER_PROMPT,
         controlnet_guidance_scale=CONTROLNET_GUIDANCE_SCALE,
@@ -118,7 +118,7 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
     condition_for_overlay = make_condition_image(condition_npz_path, line_width=2)
     print(pipeline.unet.config.in_channels)
 
-    # 出力パスの設定
+    # Set output path
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = f"{os.path.dirname(__file__)}/output"
     os.makedirs(output_dir, exist_ok=True)
@@ -128,7 +128,7 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
     else:
         output_path = f"{output_dir}/{timestamp}_w-mask_str-{STRENGTH}_blur-{BLUR_FACTOR}_kernel-{KERNEL_SIZE}.jpg"
 
-    # グリッド画像の保存
+    # Save grid image
     if SAVE_GRID_IMAGE:
         grid_image = create_result_grid(
             [
@@ -144,13 +144,12 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
                     )
                     for image in images
                 ],
-            ]  # 1行目  # 2行目
+            ]
         )
 
         grid_image.save(output_path)
         print(f"output image saved to {output_path}")
 
-    # 各画像の保存
     if SAVE_EACH_IMAGE:
         i = 0
         for image in images:
@@ -164,11 +163,9 @@ def main(init_image_path, condition_npz_path, mask_image_path=None):
 
 
 def make_mask(condition_image, kernel_size=100):
-    # condition_imageの白い線の周りだけマスクする
     mask_image = np.zeros((512, 512, 3), dtype=np.uint8)
     mask_image[condition_image == 255] = 255
 
-    # マスクを膨張させて線の周りをマスクする
     kernel = np.ones((kernel_size, kernel_size), np.uint8)
     dilated_mask = cv2.dilate(mask_image, kernel, iterations=1)
 
@@ -176,86 +173,44 @@ def make_mask(condition_image, kernel_size=100):
 
 
 if __name__ == "__main__":
+    SAMPLE_DATA_DIR = os.path.join(PROJECT_ROOT, "sample_data")
     IMAGE_PATHS = [
         {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250328_192600_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250328_192600_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250328_192600_mask.jpg",
+            "init": f"{SAMPLE_DATA_DIR}/data_20250328_192600_imag.jpg",
+            "condition": f"{SAMPLE_DATA_DIR}/data_20250328_192600_edge.npz",
+            "mask": f"{SAMPLE_DATA_DIR}/data_20250328_192600_mask.jpg",
         },
         {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_054933_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_054933_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_054933_mask.jpg",
+            "init": f"{SAMPLE_DATA_DIR}/data_20250324_054933_imag.jpg",
+            "condition": f"{SAMPLE_DATA_DIR}/data_20250324_054933_edge.npz",
+            "mask": f"{SAMPLE_DATA_DIR}/data_20250324_054933_mask.jpg",
         },
         {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_061130_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_061130_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250324_061130_mask.jpg",
+            "init": f"{SAMPLE_DATA_DIR}/data_20250324_061130_imag.jpg",
+            "condition": f"{SAMPLE_DATA_DIR}/data_20250324_061130_edge.npz",
+            "mask": f"{SAMPLE_DATA_DIR}/data_20250324_061130_mask.jpg",
         },
         {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250521_043108_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250521_043108_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data/data_20250521_043108_mask.jpg",
+            "init": f"{SAMPLE_DATA_DIR}/data_20250521_043108_imag.jpg",
+            "condition": f"{SAMPLE_DATA_DIR}/data_20250521_043108_edge.npz",
+            "mask": f"{SAMPLE_DATA_DIR}/data_20250521_043108_mask.jpg",
         },
         {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_194041_277_312_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_194041_277_312_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_194041_277_312_mask.jpg",
+            "init": f"{SAMPLE_DATA_DIR}/data_20250503_162346_256_232_imag.jpg",
+            "condition": f"{SAMPLE_DATA_DIR}/data_20250503_162346_256_232_edge.npz",
+            "mask": f"{SAMPLE_DATA_DIR}/data_20250503_162346_256_232_mask.jpg",
         },
         {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_205525_296_235_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_205525_296_235_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_205525_296_235_mask.jpg",
-        },
-        {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_232135_164_237_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_232135_164_237_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_232135_164_237_mask.jpg",
-        },
-        {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_235821_242_247_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_235821_242_247_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250523_235821_242_247_mask.jpg",
-        },
-        {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250524_001444_319_266_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250524_001444_319_266_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250524_001444_319_266_mask.jpg",
-        },
-        {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250503_162346_256_232_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250503_162346_256_232_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250503_162346_256_232_mask.jpg",
-        },
-        {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250504_134743_242_390_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250504_134743_242_390_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250504_134743_242_390_mask.jpg",
-        },
-        {
-            "init": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250719_122634_430_-1_imag.jpg",
-            "condition": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250719_122634_430_-1_edge.npz",
-            # "mask": None,
-            "mask": "/home/okumura/lab/grad_thesis_vp/vanishing_point/data_20250719_122634_430_-1_mask.jpg",
+            "init": f"{SAMPLE_DATA_DIR}/data_20250504_134743_242_390_imag.jpg",
+            "condition": f"{SAMPLE_DATA_DIR}/data_20250504_134743_242_390_edge.npz",
+            "mask": f"{SAMPLE_DATA_DIR}/data_20250504_134743_242_390_mask.jpg",
         },
     ]
 
     CONTROLNET_MODEL_PATH = os.path.join(PROJECT_ROOT, "ckpts/controlvp_controlnet")
     MODEL_NAME = "stabilityai/stable-diffusion-2-inpainting"
 
-    # その他のパラメータ設定
-    # 元々: 30, 20
+    # Other parameters
     KERNEL_SIZE = 30
     BLUR_FACTOR = 20
     STRENGTH = 1.0
@@ -266,8 +221,8 @@ if __name__ == "__main__":
     CONTROLNET_CONDITIONING_SCALE = 1.0
     CONTROLNET_GUIDANCE_SCALE = 3.0
 
-    # インデックス0の画像セットで実行
-    image_set_indexes = [11]
+    # Execute with index 0 of image set
+    image_set_indexes = [0]
     paths = [IMAGE_PATHS[image_set_index] for image_set_index in image_set_indexes]
 
     for i in range(len(image_set_indexes)):
