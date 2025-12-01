@@ -15,13 +15,13 @@ class AdditionalLossCalculatorKornia:
 
     def detect_canny_edges(self, images, low_threshold=0.5, high_threshold=0.8):
         """
-        バッチ画像からキャニーエッジ検出を実行する関数
+        Perform Canny edge detection on a batch of images.
 
         Args:
-            images (torch.Tensor): shape [B, C, H, W] のバッチ画像テンソル
+            images (torch.Tensor): Batch image tensor of shape [B, C, H, W]
 
         Returns:
-            torch.Tensor: shape [B, 1, H, W] のエッジマップ
+            torch.Tensor: Edge map of shape [B, 1, H, W]
         """
         canny = kornia.filters.Canny(
             low_threshold=low_threshold, high_threshold=high_threshold
@@ -31,24 +31,24 @@ class AdditionalLossCalculatorKornia:
 
     def detect_sobel_edges(self, images, eps=1e-8):
         """
-        バッチ画像からソ-ベルフィルタによりエッジ検出を実行する関数
+        Perform edge detection using Sobel filter on a batch of images.
 
         Args:
-            images (torch.Tensor): shape [B, C, H, W] のバッチ画像テンソル
+            images (torch.Tensor): Batch image tensor of shape [B, C, H, W]
 
         Returns:
-            torch.Tensor: shape [B, C, H, W] のエッジマップ(x方向)
-            torch.Tensor: shape [B, C, H, W] のエッジマップ(y方向)
-            torch.Tensor: shape [B, C, H, W] のエッジマップの強度
+            torch.Tensor: Edge map (x-direction) of shape [B, C, H, W]
+            torch.Tensor: Edge map (y-direction) of shape [B, C, H, W]
+            torch.Tensor: Edge magnitude of shape [B, C, H, W]
         """
-        # 3x3 Sobelフィルタの定義
+        # Define 3x3 Sobel filter
         sobel = kornia.filters.SpatialGradient(mode="sobel", order=1, normalized=True)
         edges = sobel(images)  # [B, C, 2, H, W]
-        # unpack the edges
+        # Unpack the edges
         gx = edges[:, :, 0]
         gy = edges[:, :, 1]
 
-        # compute gradient maginitude
+        # Compute gradient magnitude
         magnitude = torch.sqrt(gx * gx + gy * gy + eps)
         return edges, magnitude
 
@@ -61,17 +61,17 @@ class AdditionalLossCalculatorKornia:
         target_timesteps=None,
     ):
         """
-        ノイズ予測値とノイズの乗った潜在表現から、元の潜在表現を予測する関数
+        Predict the original latent representation from the noise prediction and noisy latents.
 
         Args:
-            noise_scheduler: DDPMスケジューラ
-            noisy_latents (torch.Tensor): ノイズの乗った潜在表現
-            model_pred (torch.Tensor): モデルによるノイズ予測値
-            current_timesteps (torch.Tensor): 現在のタイムステップ
-            target_timesteps (torch.Tensor): 目標のタイムステップ
+            noise_scheduler: DDPM scheduler
+            noisy_latents (torch.Tensor): Noisy latent representation
+            model_pred (torch.Tensor): Model's noise prediction
+            current_timesteps (torch.Tensor): Current timesteps
+            target_timesteps (torch.Tensor): Target timesteps
 
         Returns:
-            torch.Tensor: 予測された元の潜在表現
+            torch.Tensor: Predicted original latent representation
         """
         alpha_prod_t_current = noise_scheduler.alphas_cumprod[current_timesteps].to(
             noisy_latents.device
@@ -111,14 +111,14 @@ class AdditionalLossCalculatorKornia:
 
     def predict_original_image(self, vae, denoised_latents):
         """
-        ノイズ予測から元の画像を復元する関数
+        Reconstruct the original image from the denoised latents.
 
         Args:
-            vae: AutoencoderKL モデル
-            denoised_latents (torch.Tensor): ノイズ除去後の潜在表現
+            vae: AutoencoderKL model
+            denoised_latents (torch.Tensor): Denoised latent representation
 
         Returns:
-            torch.Tensor: 予測された元画像 [B, 3, H, W]
+            torch.Tensor: Predicted original image [B, 3, H, W]
         """
         if torch.isnan(denoised_latents).any():
             print(f"denoised_latents: {denoised_latents}")
@@ -130,13 +130,17 @@ class AdditionalLossCalculatorKornia:
         self, edges, magnitudes, vanishing_points, angle_threshold=0.0, eps=1e-8
     ):
         """
-        エッジマップのうち消失点に向かうものを計算する
-        edges: [B, C, 2, H, W]
-        magnitudes: [B, C, H, W]
-        vanishing_points: [B, 3, 2]
-        angle_threshold: 角度閾値（度）
-        eps: 小さい値
-        returns: [B]
+        Calculate scores for edges pointing towards vanishing points.
+
+        Args:
+            edges: [B, C, 2, H, W]
+            magnitudes: [B, C, H, W]
+            vanishing_points: [B, 3, 2]
+            angle_threshold: Angle threshold (degrees)
+            eps: Small value for numerical stability
+
+        Returns:
+            [B]: Score for each batch
         """
         B, C, _, H, W = edges.shape
         device = edges.device
@@ -159,30 +163,31 @@ class AdditionalLossCalculatorKornia:
             valid_vp_count = 0
             for vp in vps:
                 vp_x, vp_y = vp[0].item(), vp[1].item()
-                # 消失点がダミー(-1, -1)である場合は無効とする
+                # Skip if vanishing point is dummy (-1, -1)
                 is_valid_vp = ~((vp[0] == -1) & (vp[1] == -1))
                 valid_vp_count += is_valid_vp.float()
-                # 各ピクセルから消失点への単位方向ベクトルを計算
+                # Calculate unit direction vector from each pixel to vanishing point
                 vp_dx = vp_x - x_coords
                 vp_dy = vp_y - y_coords
                 vp_norms = torch.sqrt(vp_dx * vp_dx + vp_dy * vp_dy + eps)
                 vp_dx = vp_dx / vp_norms
                 vp_dy = vp_dy / vp_norms
-                # 内積によりcosθを計算
+                # Calculate cos(θ) using dot product
                 cos_theta = torch.abs(dir_x * vp_dx + dir_y * vp_dy)
-                # 角度θを計算（radで0-2pi)
+                # Calculate angle θ (in radians, 0-2π)
                 theta = torch.acos(torch.clamp(cos_theta, -0.999999, 0.999999))
-                # 角度閾値を計算（度からラジアンに変換）
+                # Convert angle threshold from degrees to radians
                 angle_threshold = torch.tensor(
                     angle_threshold * np.pi / 180.0, device=device
                 )
-                # シグモイド関数によりエッジの有効性を計算。角度差thetaが小さいほど大きな重みを与える
+                # Calculate edge validity using sigmoid function
+                # Smaller angle difference θ gives larger weight
                 temperature = 5.0
                 valid_edges = 2 * torch.sigmoid(temperature * (angle_threshold - theta))
-                # エッジ強度*有効エッジの和をとる
+                # Sum of edge magnitude * valid edges
                 edge_weights = magnitude * valid_edges
                 batch_total += torch.sum(edge_weights) * is_valid_vp.float()
-            # 有効な消失点の数で正規化
+            # Normalize by the number of valid vanishing points
             result[batch] = batch_total / (valid_vp_count + eps) / H / W
         return result
 
@@ -190,7 +195,7 @@ class AdditionalLossCalculatorKornia:
         self, original_images, pred_images, vanishing_points, timesteps_mask, eps=1e-8
     ):
         """
-        元の画像と予測画像の差分を計算する関数
+        Calculate the loss between original and predicted images.
         """
         cannys_original = self.detect_canny_edges(original_images)
         cannys_pred = self.detect_canny_edges(pred_images)
@@ -211,29 +216,29 @@ class AdditionalLossCalculatorKornia:
 
     def save_images(self, images, prefix):
         """
-        バッチ内の画像を保存する関数
+        Save images in a batch.
 
         Args:
-            images (torch.Tensor): [B, 3, H, W] の画像テンソル
-            prefix (str): 保存するファイル名のプレフィックス
+            images (torch.Tensor): Image tensor of shape [B, 3, H, W]
+            prefix (str): Prefix for the saved file name
         """
 
-        # 保存ディレクトリの作成
+        # Create save directory
         save_dir = os.path.join(os.path.dirname(__file__), "..", "generated_images")
         os.makedirs(save_dir, exist_ok=True)
 
-        # タイムスタンプの取得
+        # Get timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # バッチ内の各画像を保存
+        # Save each image in the batch
         for i in range(images.shape[0]):
-            # [-1, 1]の範囲を[0, 1]に変換
+            # Convert from [-1, 1] range to [0, 1]
             img = (images[i].clamp(-1, 1) + 1) / 2
 
-            # ファイル名の生成
+            # Generate file name
             filename = f"{prefix}_{timestamp}_batch{i}.png"
             filepath = os.path.join(save_dir, filename)
 
-            # 画像の保存
+            # Save the image
             save_image(img, filepath)
             print(f"Saved image to {filepath}")
