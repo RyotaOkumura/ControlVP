@@ -1,7 +1,7 @@
-accelerate launch \
- train/train_controlnet_vp_loss.py \
+uv run accelerate launch \
+ src/train/train_controlnet_vp_loss.py \
  --pretrained_model_name_or_path="stabilityai/stable-diffusion-2-base" \
- --output_dir="model_out_contour_vp_loss_sd2-base_w-10" \
+ --output_dir="ckpts/vp_loss_sd2-base_w-10" \
  --dataset_name=/srv/datasets3/HoliCity/dataset_w_vpts_edges \
  --image_column=image \
  --caption_column=caption \

@@ -7,9 +7,7 @@ parameter for independent classifier-free guidance over ControlNet conditions.
 """
 
 from .controlnet_inpaint_cfg import StableDiffusionControlNetInpaintCFGPipeline
-from .controlnet_cfg import StableDiffusionControlNetCFGPipeline
 
 __all__ = [
     "StableDiffusionControlNetInpaintCFGPipeline",
-    "StableDiffusionControlNetCFGPipeline",
 ]

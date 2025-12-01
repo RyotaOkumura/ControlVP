@@ -1,8 +1,8 @@
-accelerate launch \
+uv run accelerate launch \
  --main_process_port=35902 \
- train/train_controlnet_default_loss.py \
+ src/train/train_controlnet_default_loss.py \
  --pretrained_model_name_or_path="stabilityai/stable-diffusion-2-1" \
- --output_dir="model_out_w_vpts_edges_black-bg2" \
+ --output_dir="ckpts/default_loss" \
  --dataset_name=/srv/datasets3/HoliCity/dataset_w_vpts_edges \
  --image_column=image \
  --caption_column=caption \

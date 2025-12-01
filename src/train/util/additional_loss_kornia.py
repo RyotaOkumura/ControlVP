@@ -219,7 +219,7 @@ class AdditionalLossCalculatorKornia:
         """
 
         # 保存ディレクトリの作成
-        save_dir = "generated_images"
+        save_dir = os.path.join(os.path.dirname(__file__), "..", "generated_images")
         os.makedirs(save_dir, exist_ok=True)
 
         # タイムスタンプの取得
