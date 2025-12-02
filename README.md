@@ -2,7 +2,7 @@
 
 A user-guided framework for correcting vanishing point (VP) inconsistencies in AI-generated images using building contours as conditions.
 
-![teaser](assets/readme/teaser.png)
+![teaser](assets/teaser.png)
 
 ## Installation
 
