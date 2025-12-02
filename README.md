@@ -116,5 +116,4 @@ If you find this work useful, please consider citing:
 
 ## ToDo
 
-- [ ] Release GUI for creating control instructions
 - [ ] Update reference
