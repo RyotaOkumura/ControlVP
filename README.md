@@ -1,5 +1,7 @@
 # ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points
+This repository is the official code for the paper **ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points** by Ryota Okumura, Kaede Shiohara, Toshihiko Yamasaki
 
+## Introduction
 A user-guided framework for correcting vanishing point (VP) inconsistencies in AI-generated images using building contours as conditions.
 
 ![teaser](assets/teaser.png)
@@ -115,5 +117,5 @@ If you find this work useful, please consider citing:
 ```
 
 ## ToDo
-
+- [ ] Add evaluation code
 - [ ] Update reference
