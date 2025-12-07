@@ -116,6 +116,9 @@ If you find this work useful, please consider citing:
 }
 ```
 
+## License
+This code is released under the Apache License 2.0 
+
 ## ToDo
 - [ ] Add evaluation code
 - [ ] Update reference
