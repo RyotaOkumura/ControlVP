@@ -13,6 +13,7 @@ A user-guided framework for correcting vanishing point (VP) inconsistencies in A
 - Python 3.11+
 - CUDA 12.1
 - [uv](https://docs.astral.sh/uv/) package manager
+- [git-lfs](https://git-lfs.com/)
 
 ### Setup
 
@@ -22,6 +23,9 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies
 uv sync
+
+# Activate virtual environment
+source .venv/bin/activate
 ```
 
 ## Training
