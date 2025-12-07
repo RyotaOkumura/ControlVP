@@ -115,15 +115,9 @@ To prepare your own images for inference, use the [ControlVP GUI tool](https://g
 
 If you find this work useful, please consider citing:
 
-```bibtex
-@article{okumura2025controlvp,
-  title={ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points},
-  author={Okumura, Ryota and Shiohara, Kaede and Yamasaki, Toshihiko},
-  year={2025}
-}
-```
+> BibTeX entry will be available upon arXiv publication.
 
-## ToDo
-- [ ] Add evaluation code
-- [ ] Update reference
-- [ ] Add license info
+## TODO
+- [ ] Release evaluation code
+- [ ] Add citation
+- [ ] Add license
