@@ -120,4 +120,3 @@ If you find this work useful, please consider citing:
 ## TODO
 - [ ] Release evaluation code
 - [ ] Add citation
-- [ ] Add license
