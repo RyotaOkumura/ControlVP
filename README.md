@@ -102,7 +102,7 @@ Run inference on the provided sample data using pre-trained weights:
 uv run python src/inference/inpainting.py
 ```
 
-### Using Your Own Trained Model
+### Using Your Own Trained Model (Optional)
 
 To use your own trained model, modify the `CONTROLNET_MODEL_PATH` in `src/inference/inpainting.py` 
 
@@ -110,7 +110,7 @@ To use your own trained model, modify the `CONTROLNET_MODEL_PATH` in `src/infere
 CONTROLNET_MODEL_PATH = "path/to/your/trained/model"
 ```
 
-### Creating Custom Control Instructions
+### Creating Custom Control Instructions (Optional)
 
 To prepare your own images for inference, use the [ControlVP GUI tool](https://github.com/RyotaOkumura/GUI_for_ControlVP). After creating control data with the GUI, update the `IMAGE_PATHS` and `image_set_indexes` variables in `src/inference/inpainting.py` to point to your custom data.
 
