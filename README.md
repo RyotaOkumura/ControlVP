@@ -1,6 +1,9 @@
 # ControlVP (WACV 2026)
+[![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2512.07504)
+
+
 This repository is the official code for the paper:
-> ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points  
+> [**ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points**](https://arxiv.org/abs/2512.07504)   
 > Ryota Okumura, Kaede Shiohara, Toshihiko Yamasaki  
 > WACV 2026
 
@@ -115,8 +118,16 @@ To prepare your own images for inference, use the [ControlVP GUI tool](https://g
 
 If you find this work useful, please consider citing:
 
-> BibTeX entry will be available upon arXiv publication.
-
+```bibtex
+@misc{okumura2025controlvp,
+      title={ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points}, 
+      author={Ryota Okumura and Kaede Shiohara and Toshihiko Yamasaki},
+      year={2025},
+      eprint={2512.07504},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2512.07504}, 
+}
+```
 ## TODO
 - [ ] Release evaluation code
-- [ ] Add citation
