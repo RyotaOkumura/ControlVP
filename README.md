@@ -1,5 +1,11 @@
-# ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points
-This repository is the official code for the paper **ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points** by Ryota Okumura, Kaede Shiohara, Toshihiko Yamasaki
+# ControlVP (WACV 2026)
+[![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2512.07504)
+
+
+This repository is the official code for the paper:
+> [**ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points**](https://arxiv.org/abs/2512.07504)   
+> Ryota Okumura, Kaede Shiohara, Toshihiko Yamasaki  
+> WACV 2026
 
 ## Introduction
 A user-guided framework for correcting vanishing point (VP) inconsistencies in AI-generated images using building contours as conditions.
@@ -96,7 +102,7 @@ Run inference on the provided sample data using pre-trained weights:
 uv run python src/inference/inpainting.py
 ```
 
-### Using Your Own Trained Model
+### Using Your Own Trained Model (Optional)
 
 To use your own trained model, modify the `CONTROLNET_MODEL_PATH` in `src/inference/inpainting.py` 
 
@@ -104,7 +110,7 @@ To use your own trained model, modify the `CONTROLNET_MODEL_PATH` in `src/infere
 CONTROLNET_MODEL_PATH = "path/to/your/trained/model"
 ```
 
-### Creating Custom Control Instructions
+### Creating Custom Control Instructions (Optional)
 
 To prepare your own images for inference, use the [ControlVP GUI tool](https://github.com/RyotaOkumura/GUI_for_ControlVP). After creating control data with the GUI, update the `IMAGE_PATHS` and `image_set_indexes` variables in `src/inference/inpainting.py` to point to your custom data.
 
@@ -113,14 +119,15 @@ To prepare your own images for inference, use the [ControlVP GUI tool](https://g
 If you find this work useful, please consider citing:
 
 ```bibtex
-@article{okumura2025controlvp,
-  title={ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points},
-  author={Okumura, Ryota and Shiohara, Kaede and Yamasaki, Toshihiko},
-  year={2025}
+@misc{okumura2025controlvp,
+      title={ControlVP: Interactive Geometric Refinement of AI-Generated Images with Consistent Vanishing Points}, 
+      author={Ryota Okumura and Kaede Shiohara and Toshihiko Yamasaki},
+      year={2025},
+      eprint={2512.07504},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2512.07504}, 
 }
 ```
-
-## ToDo
-- [ ] Add evaluation code
-- [ ] Update reference
-- [ ] Add license info
+## TODO
+- [ ] Release evaluation code
