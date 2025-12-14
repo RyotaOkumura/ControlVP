@@ -1,11 +1,8 @@
 import argparse
-import math
 import os
-import sys
 from glob import glob
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.linalg as LA
 from skimage import measure
@@ -74,9 +71,16 @@ def handle(prefix):
 
 
 def main():
+    import sys
+    sys.path.append(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
+    from src.config import config
+
     # fmt: off
     parser = argparse.ArgumentParser()
-    parser.add_argument("--glob", default="/srv/datasets3/HoliCity/images/*/*.jpg", help="path to the index of pano images")
+    default_glob = os.path.join(config["dataset"]["image_base_dir"], "*/*.jpg")
+    parser.add_argument("--glob", default=default_glob, help="path to the index of pano images")
     parser.add_argument("--batch", type=int, default=0, help="parallel processing")
     parser.add_argument("--total", type=int, default=1, help="parallel procesing")
     # fmt: on
